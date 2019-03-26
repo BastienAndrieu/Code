@@ -1,0 +1,44 @@
+########################################################
+# Importer le projet MyThesis sur une nouvelle machine #
+########################################################
+Créer un dossier Gitlab/
+git init 								# A effectuer dans le dossier Gitlab/
+git clone git@gitlab.centralesupelec.fr:2015rutardn/MyThesis.git 	# A effectuer dans le dossier Gitlab/. Cela copie le projet MyThesis dans /Gitlab.
+
+#############################################
+# Modif de la liste des TAG pour la synchro #
+#############################################
+git add file_name 		# Rajouter dans la liste des TAG un fichier/dossier à ajouter à la base.
+git rm file_name --cached 	# Retirer dans la liste des TAG un fichier/dossier et le supprimer de la base uniquement.
+git rm file_name -f		# Retirer dans la liste des TAG un fichier/dossier et le supprimer de la base ET du local.
+
+######################################################
+# Envoyer à la base la liste des TAG pour la synchro #
+######################################################
+git commit -m "comment"		# Envoyer à la base la liste des TAG pour la synchro après un "git add" ou "git rm" manuel de tous les fichiers/dossiers à updater.
+git commit -a -m "comment"	# Envoyer à la base une liste automatique de TAG. Equivalent à un "git add" ou "git rm" de tous les fichiers déjà présents dans la liste des TAG qui ont 				   été modifiés/ajoutés/supprimer du local.
+
+#####################################################
+# Effectuer la synchro dans un sens ou dans l'autre #
+#####################################################
+git push 			# Effectuer la synchro vers la base à partir de la liste des TAG.
+git pull			# Effectuer la synchro depuis la base des fichiers/dossiers modifiés à partir de la base (lors de la modif, la base a automatiquement créer un nouveau					   commit).
+git checkout			# Obtenir la liste des fichiers/dossiers qui manquent sur le local
+git checkout file_name		# Récupérer depuis la base le fichier/dossier en question.
+
+##########
+# Divers #
+##########
+git status  # Vérifier le status l'état du projet
+
+
+
+
+
+
+
+
+
+
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/config/private-key-github
