@@ -4,17 +4,6 @@ import mathutils
 from mathutils import Vector, Matrix
 import numpy
 
-### Insert mesh from pydata ###
-def pydata_to_mesh(verts,
-                   faces,
-                   name='mesh'):
-    msh = bpy.data.meshes.new(name)
-    obj = bpy.data.objects.new(name, msh)
-    bpy.context.scene.objects.link(obj)
-    msh.from_pydata(verts,[],faces)
-    msh.update(calc_edges=True)
-    return obj
-###########################
 
 
 
@@ -111,46 +100,6 @@ def laplacian_smoothing(obj,
 
 
 
-### Insert polyline from pydata  ###
-def pydata_to_polyline(points,
-                       name='polyline',
-                       thickness=0,
-                       resolution_u=24,
-                       bevel_resolution=4,
-                       fill_mode='FULL'):
-    curv = bpy.data.curves.new(name=name,type='CURVE')
-    curv.dimensions = '3D'
-
-    obj = bpy.data.objects.new(name, curv)
-    bpy.context.scene.objects.link(obj)
-
-    polyline = curv.splines.new('POLY')
-    polyline.points.add(len(points)-1)
-
-    for i, p in enumerate(points):
-        polyline.points[i].co = (p[0], p[1], p[2], 1)
-
-    obj.data.resolution_u     = resolution_u
-    obj.data.fill_mode        = fill_mode
-    obj.data.bevel_depth      = thickness
-    obj.data.bevel_resolution = bevel_resolution
-
-    return obj
-###########################
-
-
-
-### Extract polyline vertex coordinates ###
-def polyline_to_pydata(curv):
-    polylines = []
-    for polyline in curv.splines:
-        points = numpy.zeros((len(polyline.points),3))
-        for i, p in enumerate(polyline.points):
-            for j in range(3):
-                points[i,j] = p.co[j]
-        polylines.append(points) 
-    return polylines
-###########################
 
 
 
@@ -250,3 +199,19 @@ def overlap_AABBs(amin, amax, bmin, bmax):
         if max(amin[i], bmin[i]) > min(amax[i], bmax[i]): return False
     return True
 ###########################
+
+
+
+
+###
+def set_smooth(obj):
+    msh = obj.data
+    msh.use_auto_smooth = True
+    for f in msh.polygons:
+        f.use_smooth = True
+    return
+###########################
+
+
+
+
