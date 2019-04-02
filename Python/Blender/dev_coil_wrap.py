@@ -1,6 +1,7 @@
 import bpy
+import bmesh
 import numpy
-from mathutils import Vector
+from mathutils import Vector, Color
 
 import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python')
@@ -10,7 +11,7 @@ import lib_blender_util as lbu
 scene = bpy.context.scene
 
 
-body = bpy.data.objects["Suzanne"]#["Cube"]
+body = bpy.data.objects["Suzanne"]#["Cube"]#
 
 
 #trajectory = bpy.data.objects["trajectory"]
@@ -74,15 +75,121 @@ stat, coil = lbe.wrap_coil(body,
                            trajectory,
                            nsteps)
 
-obj = lbu.pydata_to_polyline(coil,
+"""
+# select mesh faces crossed by the coil
+bpy.ops.object.select_all(action='DESELECT')
+scene.objects.active = body
+body.select = True
+bpy.ops.object.mode_set(mode='EDIT')
+bmsh = bmesh.from_edit_mesh(body.data)
+bpy.ops.mesh.select_mode(type='FACE')
+bpy.ops.mesh.select_all(action='DESELECT')
+for p in coil:
+    for f in p.faces:
+        bmsh.faces[f].select = True
+bpy.ops.object.mode_set(mode='OBJECT')
+bmsh.free()
+"""
+thickness = body.dimensions.length*7e-3
+
+obj = lbu.pydata_to_polyline([p.xyz for p in coil],
                              name='coil',
-                             thickness=body.dimensions.length*3e-3,
+                             thickness=thickness,
                              resolution_u=24,
                              bevel_resolution=4,
                              fill_mode='FULL')
 mat = bpy.data.materials.new("mat_coil")
 mat.diffuse_color = [1,1,0]
 mat.diffuse_intensity = 1
-mat.emit = 1
-mat.use_shadeless = True
 obj.data.materials.append(mat)
+
+#lbe.set_smooth(body)
+disp_value = lbe.apply_coil_pressure2(body,
+                                      coil,
+                                      thickness,
+                                      smooth_passes=6,
+                                      apply_disp=False)
+
+print("displacement value --> vertex color")
+disp_value = numpy.asarray(disp_value)
+# remap to [0,1]
+disp_min = numpy.amin(disp_value)
+disp_max = numpy.amax(disp_value)
+disp_value = (disp_value - disp_min)/(disp_max - disp_min)
+
+# displacement value to vertex color
+body.data.vertex_colors.new()
+vertexcolor = body.data.vertex_colors[0].data
+for f in body.data.polygons:
+    for i in range(f.loop_total):
+        j = f.loop_start + i
+        vertexcolor[j].color.h = 0
+        vertexcolor[j].color.s = 0
+        vertexcolor[j].color.v = disp_value[f.vertices[i]]
+
+mat = bpy.data.materials.new("mat_body")
+mat.use_vertex_color_paint = True
+mat.use_shadeless = True
+body.data.materials.append(mat)
+body.active_material_index = 1
+
+
+# unwrap UVs
+print("displacement map")
+scene = bpy.context.scene
+bpy.ops.object.select_all(action='DESELECT')
+body.select = True
+scene.objects.active = body
+bpy.ops.object.mode_set(mode='EDIT')
+bpy.ops.uv.smart_project(angle_limit=66.0,
+                         island_margin=0.0,
+                         user_area_weight=0.0)
+bpy.ops.object.mode_set(mode='OBJECT')
+
+render = scene.render
+render.use_bake_clear = True
+render.bake_margin = 0.0
+render.use_bake_selected_to_active = True
+render.bake_type = 'VERTEX_COLORS'
+
+imsize = 1024
+bpy.ops.image.new(name="displacement",
+                  width=imsize,
+                  height=imsize,
+                  alpha=True,
+                  generated_type='BLANK')
+img = bpy.data.images["displacement"]
+bpy.ops.object.mode_set(mode='EDIT')
+
+area = bpy.context.screen.areas[2]
+area.type = 'IMAGE_EDITOR'
+area.spaces.active.image = img
+
+pth = '/d/bandrieu/GitHub/Code/Python/Blender/'
+filepath = pth + 'coil_pressure_displacement'
+scene.render.filepath = filepath
+bpy.ops.object.bake_image()
+img.save_render(filepath=filepath + '.png')
+bpy.ops.object.mode_set(mode='OBJECT')
+
+# export obj
+bpy.ops.export_scene.obj(filepath=pth + 'coil_body.obj',
+                         use_selection=True,
+                         use_animation=False,
+                         use_mesh_modifiers=True,
+                         use_edges=True,
+                         use_smooth_groups=False,
+                         use_smooth_groups_bitflags=False,
+                         use_normals=False,
+                         use_uvs=True,
+                         use_materials=True,
+                         use_triangles=False,
+                         use_nurbs=False,
+                         use_vertex_groups=False,
+                         use_blen_objects=True,
+                         group_by_object=False,
+                         group_by_material=True,
+                         keep_vertex_order=True,
+                         axis_forward='-Z', axis_up='Y',
+                         global_scale=1.0,
+                         path_mode='AUTO')

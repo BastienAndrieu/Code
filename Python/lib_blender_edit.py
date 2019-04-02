@@ -3,6 +3,7 @@ import bmesh
 import mathutils
 from mathutils import Vector, Matrix
 import numpy
+import math
 
 import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python')
@@ -393,15 +394,17 @@ def wrap_coil(body,
     
     # initial contact point
     trajectory.data.eval_time = 0
-    location, contact_normal, index = body.closest_point_on_mesh(lbu.get_global_position(emitter))
-    if index < 0:
+    location, contact_normal, iface = body.closest_point_on_mesh(lbu.get_global_position(emitter))
+    if iface < 0:
         return False, coil
     contact_point = bpy.data.objects.new("contact_point", None)
     contact_point.location = location
     bpy.context.scene.objects.link(contact_point)
 
     # initialize wrapped coil
-    coil.append(contact_point.location)
+    coil.append(IntersectionPoint(faces=[iface],
+                                  uvs=[],
+                                  xyz=contact_point.location))
 
     # wrap coil around body
     EPS = body.dimensions.length*1e-5
@@ -411,13 +414,133 @@ def wrap_coil(body,
         scene.update()
 
         emitloc = lbu.get_global_position(emitter)
-        location, normal, index = body.ray_cast(start=emitloc,
+        location, normal, iface = body.ray_cast(start=emitloc,
                                                 end=contact_point.location + EPS*contact_normal)
 
-        if index > 0:
+        if iface > 0:
             contact_point.location = location
             contact_normal = normal
-            coil.append(location)
+            coil.append(IntersectionPoint(faces=[iface],
+                                          uvs=[],
+                                          xyz=location))
 
     return True, coil
-        
+###########################
+
+
+
+def apply_coil_pressure(body,
+                        coil,
+                        thickness):
+    bpy.ops.object.select_all(action='DESELECT')
+    body.select = True
+    bpy.context.scene.objects.active = body
+
+    # switch to edit mode
+    bpy.ops.object.mode_set(mode='EDIT')
+    # Get a BMesh representation
+    bmsh = bmesh.from_edit_mesh(body.data)
+    
+    bpy.ops.mesh.select_mode(type='FACE')
+
+    for i, p in enumerate(coil):
+        print("coil point #",i+1,"/",len(coil))
+        bpy.ops.mesh.select_all(action='DESELECT')
+        #select face(s) in direct contact with the current coil node
+        for f in p.faces:
+            bmsh.faces[f].select = True
+        # extend selection
+        for iextend in range(4):# HARD-CODED
+            bpy.ops.mesh.select_more()
+        # get list of vertices of the selected submesh
+        faces = [f for f in bmsh.faces if f.select]
+        verts = []
+        for f in faces:
+            for v in f.verts:
+                if not v in verts:
+                    verts.append(v)
+        # move vertices
+        for v in verts:
+            vec = v.co - p.xyz
+            C = vec.dot(vec) - thickness**2
+            if C < 0:
+                B = -v.normal.dot(vec)
+                lamb = math.sqrt(B**2 - C) - B
+                v.co = v.co - lamb*v.normal
+
+    # leave edit mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bmsh.free()
+    return
+    
+                
+############################################
+def apply_coil_pressure2(body,
+                         coil,
+                         thickness,
+                         smooth_passes=3,
+                         apply_disp=True):
+    bpy.ops.object.select_all(action='DESELECT')
+    body.select = True
+    bpy.context.scene.objects.active = body
+
+    # switch to edit mode
+    bpy.ops.object.mode_set(mode='EDIT')
+    # Get a BMesh representation
+    bmsh = bmesh.from_edit_mesh(body.data)
+
+    # compute displacement of vertices in direct contact with the coil
+    nverts = len(bmsh.verts)
+    vert_disp = numpy.zeros((nverts,3))
+    nvert_disp = numpy.zeros(nverts, dtype=int)
+    for i, p in enumerate(coil):
+        print("coil point #",i+1,"/",len(coil))
+        for f in p.faces:
+            for v in bmsh.faces[f].verts:
+                iv = v.index
+                nvert_disp[iv] += 1
+                vec = v.co - p.xyz
+                C = vec.dot(vec) - thickness**2
+                if C < 0:
+                    B = -v.normal.dot(vec)
+                    lamb = math.sqrt(B**2 - C) - B
+                    disp = -lamb*v.normal
+                    for i in range(3):
+                        vert_disp[iv,i] = vert_disp[iv,i] + disp[i]
+    for iv in range(len(bmsh.verts)):
+        if nvert_disp[iv] > 0:
+            vert_disp[iv] = vert_disp[iv]/float(nvert_disp[iv])
+
+    # get list of free vertices (i.e. not in drect contact with the coil)
+    freeverts = [v for v in bmsh.verts if nvert_disp[v.index] == 0]
+    # get vertex-vertex adjacency lists
+    neighbors = [[e.other_vert(v) for e in v.link_edges] for v in bmsh.verts]
+
+    # smooth displacement field
+    vert_disp_tmp = numpy.zeros((nverts,3))
+    for passe in range(smooth_passes):
+        print("displacement smoothing, pass #",passe+1,'/',smooth_passes)
+        vert_disp_tmp[:,:] = 0.0
+        for v in freeverts:
+            iv = v.index
+            vert_disp_tmp[iv] = vert_disp[iv].copy()
+            for w in neighbors[v.index]:
+                jv = w.index
+                vert_disp_tmp[iv] = vert_disp_tmp[iv] + vert_disp[jv]
+            vert_disp_tmp[iv] = vert_disp_tmp[iv]/float(len(neighbors[iv]) + 1)
+        for v in freeverts:
+            iv = v.index
+            vert_disp[iv] = vert_disp_tmp[iv].copy()
+
+    # extract normal displacement map
+    disp_map = [v.normal.dot(Vector(vert_disp[v.index])) for v in bmsh.verts]
+
+    if apply_disp:
+        # apply vertex displacement
+        for v in bmsh.verts:
+            v.co = v.co + Vector(vert_disp[v.index])
+
+    # leave edit mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bmsh.free()
+    return disp_map

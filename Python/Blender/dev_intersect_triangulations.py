@@ -61,7 +61,9 @@ for imesh, o in enumerate(obj):
     
     # unwrap UVs
     bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.uv.smart_project(angle_limit=66.0, island_margin=0.0, user_area_weight=0.0)
+    bpy.ops.uv.smart_project(angle_limit=66.0,
+                             island_margin=0.0,
+                             user_area_weight=0.0)
     bpy.ops.uv.export_layout(filepath=pth+'uvlayout_'+str(imesh),
                              export_all=False,
                              modified=False,
