@@ -10,10 +10,17 @@ import lib_blender_util as lbu
 scene = bpy.context.scene
 
 
-body = bpy.data.objects["Cube"]
+body = bpy.data.objects["Suzanne"]#["Cube"]
 
 
-trajectory = bpy.data.objects["trajectory"]
+#trajectory = bpy.data.objects["trajectory"]
+"""
+trajectory = lbu.helix_nurbs(height=0.3,
+                             radius=2.0,
+                             npts=5,
+                             name="helix")
+"""
+trajectory = bpy.data.objects["helix"]
 
 """
 # coil emitter
@@ -60,7 +67,9 @@ for step in range(nsteps+1):
         contact_normal = normal
         coil.append(location)
 """
-nsteps = 1000
+
+
+nsteps = 5000
 stat, coil = lbe.wrap_coil(body,
                            trajectory,
                            nsteps)

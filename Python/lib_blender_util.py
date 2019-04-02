@@ -3,7 +3,7 @@ import bmesh
 import mathutils
 from mathutils import Vector, Matrix
 
-
+import numpy
 
 ###
 def clear_scene(meshes=True, lamps=True, cameras=False):
@@ -171,4 +171,32 @@ def is_visible_point(xyz,
         obj.select = True
         bpy.ops.object.delete()
     return visible
+###########################
+
+
+
+##
+def helix_nurbs(height,
+                radius,
+                nturns,
+                name="helix"):
+    curv = bpy.data.curves.new(name=name,type='CURVE')
+    curv.dimensions = '3D'
+
+    obj = bpy.data.objects.new(name, curv)
+    bpy.context.scene.objects.link(obj)
+
+    nurbs = curv.splines.new('NURBS')
+    
+    npts = int(round(nturns*4.0))
+    nurbs.points.add(npts-1)
+    t = 2*numpy.pi*numpy.linspace(0,nturns,npts)
+    z = numpy.linspace(0,height,npts)
+    for i in range(npts):
+        nurbs.points[i].co.x = radius*numpy.cos(t[i])
+        nurbs.points[i].co.y = radius*numpy.sin(t[i])
+        nurbs.points[i].co.z = z[i]
+        nurbs.points[i].co.w = 1
+    
+    return obj
 ###########################

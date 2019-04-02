@@ -405,6 +405,7 @@ def wrap_coil(body,
 
     # wrap coil around body
     EPS = body.dimensions.length*1e-5
+    trajectory.data.path_duration = nsteps
     for step in range(nsteps+1):
         trajectory.data.eval_time = step
         scene.update()
