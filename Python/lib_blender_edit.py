@@ -4,7 +4,9 @@ import mathutils
 from mathutils import Vector, Matrix
 import numpy
 
-
+import sys
+sys.path.append('/d/bandrieu/GitHub/Code/Python')
+import lib_blender_util as lbu
 
 
 ### Triangulate an object ###
@@ -368,3 +370,53 @@ def trace_geodesic(iface,
             bmsh.free()
             return geodesic
 ###########################
+
+
+
+
+###
+def wrap_coil(body,
+              trajectory,
+              nsteps):
+    scene = bpy.context.scene
+    coil = []
+    # coil emitter
+    emitter = bpy.data.objects.new("emitter", None)
+    emitter.location = trajectory.data.splines[0].points[0].co[0:3]
+    bpy.context.scene.objects.link(emitter)
+    # "follow path" constraint
+    bpy.ops.object.select_all(action='DESELECT')
+    emitter.select = True
+    trajectory.select = True
+    bpy.context.scene.objects.active = trajectory #parent
+    bpy.ops.object.parent_set(type='FOLLOW') #follow path
+    
+    # initial contact point
+    trajectory.data.eval_time = 0
+    location, contact_normal, index = body.closest_point_on_mesh(lbu.get_global_position(emitter))
+    if index < 0:
+        return False, coil
+    contact_point = bpy.data.objects.new("contact_point", None)
+    contact_point.location = location
+    bpy.context.scene.objects.link(contact_point)
+
+    # initialize wrapped coil
+    coil.append(contact_point.location)
+
+    # wrap coil around body
+    EPS = body.dimensions.length*1e-5
+    for step in range(nsteps+1):
+        trajectory.data.eval_time = step
+        scene.update()
+
+        emitloc = lbu.get_global_position(emitter)
+        location, normal, index = body.ray_cast(start=emitloc,
+                                                end=contact_point.location + EPS*contact_normal)
+
+        if index > 0:
+            contact_point.location = location
+            contact_normal = normal
+            coil.append(location)
+
+    return True, coil
+        

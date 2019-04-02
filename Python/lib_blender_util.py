@@ -53,8 +53,10 @@ def set_scene(resolution_x=800,
 ###########################
 
 
-
-
+###
+def get_global_position(obj):
+    return Vector([obj.matrix_world[j][3] for j in range(3)])
+###########################
 
 
 ### Insert a point light ###
