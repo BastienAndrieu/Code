@@ -103,7 +103,11 @@ def pydata_to_mesh(verts,
     return obj
 ###########################
 
-
+def mesh_to_pydata(mesh):
+    verts = [[x for x in v.co[0:3]] for v in mesh.vertices]
+    faces = [[i for i in f.vertices] for f in mesh.polygons]
+    return verts, faces
+###########################
 
 ### Insert polyline from pydata  ###
 def pydata_to_polyline(points,

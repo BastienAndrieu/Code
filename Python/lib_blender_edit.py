@@ -58,7 +58,7 @@ def extract_selected_submesh(obj):
     bpy.ops.object.mode_set(mode='OBJECT')
 
     # clone submesh in a separate object
-    subobj = pydata_to_mesh(verts, faces, name=obj.name + "_submesh")
+    subobj = lbu.pydata_to_mesh(verts, faces, name=obj.name + "_submesh")
     subobj.location = obj.location
     subobj.rotation_euler = obj.rotation_euler
     subobj.scale = obj.scale

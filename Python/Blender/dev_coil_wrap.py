@@ -108,7 +108,8 @@ disp_value = lbe.apply_coil_pressure2(body,
                                       coil,
                                       thickness,
                                       smooth_passes=6,
-                                      apply_disp=False)
+                                      apply_disp=True)
+
 
 print("displacement value --> vertex color")
 disp_value = numpy.asarray(disp_value)
@@ -148,7 +149,7 @@ bpy.ops.object.mode_set(mode='OBJECT')
 
 render = scene.render
 render.use_bake_clear = True
-render.bake_margin = 0.0
+render.bake_margin = 5
 render.use_bake_selected_to_active = True
 render.bake_type = 'VERTEX_COLORS'
 
@@ -193,3 +194,4 @@ bpy.ops.export_scene.obj(filepath=pth + 'coil_body.obj',
                          axis_forward='-Z', axis_up='Y',
                          global_scale=1.0,
                          path_mode='AUTO')
+
