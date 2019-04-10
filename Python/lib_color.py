@@ -2,7 +2,8 @@ import numpy as np
 import math
 
 def sample_colormap(name, n):
-    cm0 = np.loadtxt('/d/bandrieu/GitHub/These/memoire/figures/code/colormaps/'+name+'.dat')
+    #cm0 = np.loadtxt('/d/bandrieu/GitHub/These/memoire/figures/code/colormaps/'+name+'.dat')
+    cm0 = np.loadtxt('/d/bandrieu/GitHub/Code/palettes/'+name+'.dat')
     t0 = np.linspace(0,1,cm0.shape[0])
     t = np.linspace(0,1,n)
     cm = np.zeros((n,3))

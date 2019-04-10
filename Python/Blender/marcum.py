@@ -34,16 +34,30 @@ def optimal_vertex_co_wrt_edge(vj, vk):
     return vi
 #########################################################################################
 scene = bpy.context.scene
-lbu.clear_scene(meshes=True, lamps=True, cameras=False)
+lbu.clear_scene(meshes=True, lamps=False, cameras=False)
+lbu.set_scene(resolution_x=800,
+              resolution_y=800,
+              resolution_percentage=100,
+              alpha_mode='SKY',
+              horizon_color=[1,1,1],
+              light_samples=10,
+              use_environment_light=True,
+              environment_energy=0.1,
+              environment_color='PLAIN')
 
 bpy.ops.import_scene.obj(filepath='/d/bandrieu/stck/Bureau/PFE/MeshEdit/nefertitiobj.obj',
                          axis_forward='Y', axis_up='Z')
+cam = scene.camera
+cam.location = [0,0,10]
+cam.rotation_euler = [0,0,0]
 
 obj = bpy.data.objects['nefertitiobj']
 msh = obj.data
 
 scene.objects.active = obj
 obj.select = True
+bpy.ops.view3d.camera_to_view_selected()
+
 
 """
 # refine mesh
@@ -151,3 +165,51 @@ for i, f in enumerate(msh.polygons):
         k = f.loop_start + j
         for l in range(2):
             obj.data.uv_layers.active.data[k].uv[l] = uv[f.vertices[j],l]
+
+# checker texture
+imgchecker = bpy.data.images.load(filepath='/d/bandrieu/GitHub/Code/Python/Blender/checker.png')
+texchecker = bpy.data.textures.new('texture_checker', 'IMAGE')
+texchecker.image = imgchecker
+
+# material
+mat = bpy.data.materials.new('mat_checker')
+mat.diffuse_color = [1,1,1]
+mat.diffuse_intensity = 1
+mat.specular_intensity = 0
+mat.specular_hardness = 30
+mat.use_transparency = False
+#mat.use_shadeless = True
+
+slot = mat.texture_slots.add()
+slot.texture = texchecker
+slot.texture_coords = 'UV'
+slot.blend_type = 'MULTIPLY'
+slot.diffuse_color_factor = 0.33
+
+obj.data.materials.append(mat)
+
+
+# freestyle
+bpy.ops.object.mode_set(mode='EDIT')
+bpy.ops.mesh.select_mode(type='EDGE')
+bpy.ops.mesh.select_all(action='SELECT')
+bpy.ops.mesh.mark_freestyle_edge(clear=False)
+bpy.ops.object.mode_set(mode='OBJECT')
+
+scene.render.use_freestyle = True
+freestyle = scene.render.layers.active.freestyle_settings
+freestyle.use_smoothness = False
+
+lineset = freestyle.linesets['LineSet']
+lineset.select_silhouette = False
+lineset.select_border = False
+lineset.select_crease = False
+lineset.select_edge_mark = True
+lineset.select_by_group = False
+lineset.visibility = 'VISIBLE'
+linestyle = bpy.data.linestyles['LineStyle']
+linestyle.caps = 'BUTT'
+linestyle.use_chaining = False
+linestyle.geometry_modifiers['Sampling'].sampling = 0.1
+linestyle.color = [0,0,0]
+linestyle.thickness = 2.0

@@ -1,3 +1,8 @@
+import numpy
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, Wedge, Polygon
+from matplotlib.collections import PatchCollection
+
 ############################################################
 class Vertex:
     def __init__(self, co, edge, index):
@@ -206,3 +211,105 @@ def get_v2v(mesh, v):
         e = get_twin(e, mesh)
         if e[0] == v.edge[0]: return verts
 #######################################
+
+def plot_mesh(mesh,
+              ax,
+              faces=True,
+              halfedges=True,
+              vertices=True,
+              v2h=True,
+              v2f=False,
+              count_from_1=True):
+    if count_from_1:
+        offset = 1
+    else:
+        offset = 0
+        
+    # vertex labels
+    if vertices:
+        for v in mesh.verts:
+            txt = ax.text(v.co[0], v.co[1], str(v.index+offset),
+                          zorder=10)
+            txt.set_bbox(dict(facecolor='y', alpha=0.5, edgecolor='y'))
+    
+    # face centroids
+    fctr = numpy.zeros((len(mesh.f2v), 2))
+    for i in range(len(mesh.f2v)):
+        f = mesh.f2v[i]
+        for v in f:
+            fctr[i] = fctr[i] + mesh.verts[v].co[0:2]
+        fctr[i] = fctr[i]/float(len(f))
+
+    # plot faces
+    if faces:
+        patches = []
+        for i, f in enumerate(mesh.f2v):
+            ax.text(fctr[i,0], fctr[i,1], str(i+offset))
+            polygon = numpy.array([mesh.verts[v].co[0:2] for v in f])
+            patches.append(Polygon(polygon, True))
+        colors = 100*numpy.arange(len(mesh.f2v))
+        p = PatchCollection(patches, alpha=0.2, edgecolors=None)
+        p.set_array(numpy.array(colors))
+        ax.add_collection(p)
+    
+    # plot edges
+    for i in range(len(mesh.f2v)):
+        fi = mesh.f2v[i]
+        for j in range(len(fi)):
+            v1 = mesh.verts[get_orig([i,j], mesh)]
+            v2 = mesh.verts[get_dest([i,j], mesh)]
+            if is_boundary_edge([i,j], mesh):
+                if halfedges:
+                    xym = 0.5*(v1.co + v2.co)
+                    x = [fctr[i,0], xym[0]]
+                    y = [fctr[i,1], xym[1]]
+                    ax.plot(x, y, 'b-', lw=0.5)
+                ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
+            else:
+                ej = get_twin([i,j], mesh)
+                if v1.index < v2.index:
+                    ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
+                if halfedges:
+                    ax.plot([fctr[i,0], fctr[ej[0],0]], [fctr[i,1], fctr[ej[0],1]],
+                            'g-', lw=0.5)
+
+    # vertex to incident halfedge
+    if v2h:
+        for v in mesh.verts:
+            if not is_boundary_edge(v.edge, mesh): continue
+            w = mesh.verts[get_dest(v.edge, mesh)]
+            vec = 0.5*(w.co - v.co)
+            ax.quiver(v.co[0], v.co[1], vec[0], vec[1],
+                      color='r', lw=1.5, edgecolor='r',
+                      scale_units='xy', scale=1, zorder=2)
+    if v2f:
+        for v in mesh.verts:
+            xy = []
+            e = v.edge
+            n = 0
+            if is_boundary_edge(e, mesh):
+                w = mesh.verts[get_dest(e, mesh)]
+                xy.append(0.5*(w.co[0:2] + v.co[0:2]))
+                n += 1
+            while True:
+                xy.append(fctr[e[0]])
+                n += 1
+                e = get_prev(e, mesh)
+                if is_boundary_edge(e, mesh):
+                    w = mesh.verts[get_orig(e, mesh)]
+                    xy.append(0.5*(w.co[0:2] + v.co[0:2]))
+                    break
+                e = get_twin(e, mesh)
+                if e[0] == v.edge[0]:
+                    break
+            #
+            for i in range(n):
+                xyi = 0.5*(xy[i] + v.co[0:2])
+                xyj = 0.5*(xy[(i+1)%len(xy)] + v.co[0:2])
+                ax.quiver(xyi[0], xyi[1], xyj[0]-xyi[0], xyj[1]-xyi[1],
+                          color='c', lw=0.1, edgecolor='c',
+                          scale_units='xy', scale=1, zorder=3)
+    return
+
+
+
