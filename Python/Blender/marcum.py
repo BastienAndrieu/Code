@@ -13,7 +13,8 @@ def norm2(a):
     return numpy.sqrt( numpy.sum( numpy.power( a, 2 ) ) )
 ###########################################
 def conformal_laplacian_matrix(obj):
-    L = {}
+    W = {}
+    D = {}
     msh = obj.data
     bpy.ops.object.mode_set(mode='EDIT')
     # get a BMesh representation
@@ -27,12 +28,27 @@ def conformal_laplacian_matrix(obj):
             weight = max(1.0/math.tan(angle), 1e-2) # avoid degeneracy
             vjk = [face.verts[(i+1)%3].index, face.verts[(i+2)%3].index]
             h = lhe.hash_integer_pair(vjk[0], vjk[1])
-            if h in L:
-                L[h][2] += weight
+            if h in W:
+                W[h][2] += weight
             else:
-                L[h] = [min(vjk[0], vjk[1]), max(vjk[0], vjk[1]), weight]
+                W[h] = [min(vjk[0], vjk[1]), max(vjk[0], vjk[1]), weight]
+            for j in vjk:
+                if j in D:
+                    D[j] += weight
+                else:
+                    D[j] = weight
+                    
     bm.free()
     bpy.ops.object.mode_set(mode='OBJECT')
+    L = []
+    for h in W:
+        i = W[h][0]
+        j = W[h][1]
+        w = W[h][2]
+        L.append([i,j,-w])
+        L.append([j,i,-w])
+    for i in D:
+        L.append([i,i,D[i]])
     return L
 ###########################################
 def smoothing_closed_curve(p, n_passes=1):
@@ -85,8 +101,10 @@ bpy.ops.view3d.camera_to_view_selected()
 
 L = conformal_laplacian_matrix(obj)
 f = open('/d/bandrieu/GitHub/Code/Python/Blender/conformal_laplacian_matrix.dat','w')
-for h in L:
-    f.write('%d %d %s\n' % (L[h][0], L[h][1], L[h][2]))
+#for h in L:
+#    f.write('%d %d %s\n' % (L[h][0], L[h][1], L[h][2]))
+for rcw in L:
+    f.write('%d %d %s\n' % (rcw[0], rcw[1], rcw[2]))
 f.close()
 
 """
