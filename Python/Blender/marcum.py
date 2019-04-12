@@ -6,10 +6,34 @@ sys.path.append('/d/bandrieu/GitHub/Code/Python')
 import lib_blender_util as lbu
 import lib_halfedge as lhe
 
+import math
 
 #########################################################################################
 def norm2(a):
     return numpy.sqrt( numpy.sum( numpy.power( a, 2 ) ) )
+###########################################
+def conformal_laplacian_matrix(obj):
+    L = {}
+    msh = obj.data
+    bpy.ops.object.mode_set(mode='EDIT')
+    # get a BMesh representation
+    bm = bmesh.new()
+    bm.from_mesh(msh)
+    # triangulate
+    bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method=0, ngon_method=0)
+    for face in bm.faces:
+        for i, loop in enumerate(face.loops):
+            angle = loop.calc_angle()
+            weight = max(1.0/math.tan(angle), 1e-2) # avoid degeneracy
+            vjk = [face.verts[(i+1)%3].index, face.verts[(i+2)%3].index]
+            h = lhe.hash_integer_pair(vjk[0], vjk[1])
+            if h in L:
+                L[h][2] += weight
+            else:
+                L[h] = [min(vjk[0], vjk[1]), max(vjk[0], vjk[1]), weight]
+    bm.free()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    return L
 ###########################################
 def smoothing_closed_curve(p, n_passes=1):
     n = len(p)
@@ -59,6 +83,12 @@ obj.select = True
 bpy.ops.view3d.camera_to_view_selected()
 
 
+L = conformal_laplacian_matrix(obj)
+f = open('/d/bandrieu/GitHub/Code/Python/Blender/conformal_laplacian_matrix.dat','w')
+for h in L:
+    f.write('%d %d %s\n' % (L[h][0], L[h][1], L[h][2]))
+f.close()
+
 """
 # refine mesh
 bpy.ops.object.modifier_add(type='SUBSURF')
@@ -73,7 +103,12 @@ bpy.ops.object.modifier_apply(apply_as='DATA', modifier='Triangulate')
 vco, f2v = lbu.mesh_to_pydata(msh)
 hmsh = lhe.pydata_to_SurfaceMesh(vco, f2v)
 
-
+f = open('/d/bandrieu/GitHub/Code/Python/Blender/f2v.dat','w')
+for face in f2v:
+    for i in face:
+        f.write('%d ' % (i))
+    f.write('\n')
+f.close()
 
 
 # get loops of boundary vertices
@@ -85,6 +120,10 @@ if len(boundary_loops) != 1:
 
 # extract boundary loop curve
 boundary = boundary_loops[0]
+f = open('/d/bandrieu/GitHub/Code/Python/Blender/boundary_vertices.dat','w')
+for i in boundary:
+    f.write('%d\n' % (i))
+f.close()
 nb = len(boundary)
 
 

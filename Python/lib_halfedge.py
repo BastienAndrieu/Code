@@ -1,8 +1,3 @@
-import numpy
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Wedge, Polygon
-from matplotlib.collections import PatchCollection
-
 ############################################################
 class Vertex:
     def __init__(self, co, edge, index):
@@ -43,7 +38,7 @@ def hash_integer_pair(p, q):
         return -1
     else:
         s = max(p, q)
-        return r + s*(s-1)/2
+        return int(r + s*(s-1)/2)
 
 
 """
@@ -220,6 +215,10 @@ def plot_mesh(mesh,
               v2h=True,
               v2f=False,
               count_from_1=True):
+    import numpy
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Circle, Wedge, Polygon
+    from matplotlib.collections import PatchCollection
     if count_from_1:
         offset = 1
     else:
