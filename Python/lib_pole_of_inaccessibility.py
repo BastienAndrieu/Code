@@ -201,7 +201,7 @@ def brute_force_PIA_pixel(image, stride=10, seuil_alpha=128):
     draw = ImageDraw.Draw(image)
     draw.ellipse((jPIA-dmax,iPIA-dmax,jPIA+dmax,iPIA+dmax),
                  fill=None, outline='blue')
-    image.show()
+    #image.show()
     
     
     return iPIA, jPIA, numpy.sqrt(dmax)
