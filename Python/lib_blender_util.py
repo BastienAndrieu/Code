@@ -204,3 +204,34 @@ def helix_nurbs(height,
     
     return obj
 ###########################
+
+###########################
+import sys
+sys.path.append('/d/bandrieu/GitHub/Code/Python/')
+import lib_chebyshev as cheb
+
+def bezier_surface_to_chebyshev(bsurf):
+    spline = bsurf.data.splines[0]
+    mb = spline.point_count_u #order_u
+    nb = spline.point_count_v #order_v
+    if max(mb,nb) > 4:
+        return []
+    B = numpy.zeros((mb,nb,3))
+    for l, p in enumerate(spline.points):
+        i = l%mb
+        j = int((l-i)/mb)
+        for k in range(3):
+            B[i,j,k] = p.co[k]
+    M = cheb.B2Cmatrix(mb)
+    N = cheb.B2Cmatrix(nb)
+    C = numpy.zeros((mb,nb,3))
+    for dim in range(3):
+        for i in range(mb):
+            for j in range(nb):
+                for k in range(nb):
+                    MB = 0.0
+                    for l in range(mb):
+                        MB += M[i,l]*B[l,k,dim]
+                    C[i,j,dim] += MB*N[j,k]
+    return C
+###########################
