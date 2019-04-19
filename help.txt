@@ -35,8 +35,8 @@ git status  # Vérifier le status l'état du projet
 
 
 
-
-
+# aide pour gitignore
+https://fr.atlassian.com/git/tutorials/saving-changes/gitignore
 
 
 
