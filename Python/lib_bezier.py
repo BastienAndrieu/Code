@@ -7,13 +7,14 @@ def B(coorArr, i, j, t):
 
 
 
-
-
-
-
-
-
-
+def diff(b):
+    shp = list(b.shape)
+    degr = shp[0]-1
+    shp[0] = max(1, degr)
+    db = numpy.zeros(tuple(shp))
+    for i in range(degr):
+        db[i] = b[i+1] - b[i]
+    return float(degr)*db
 
 def de_casteljau(b, t):
     bjm1 = numpy.copy(b)
@@ -36,3 +37,14 @@ def de_casteljau(b, t):
     f = bj[0]
     return f, bl, br
     
+
+
+def eval_bezier_curve(b, t):
+    n = len(t)
+    dim = b.shape[1]
+    p = numpy.zeros((n,dim))
+    for i in range(n):
+        f, bl, br = de_casteljau(b, t[i])
+        for j in range(dim):
+            p[i,j] = f[j]
+    return p

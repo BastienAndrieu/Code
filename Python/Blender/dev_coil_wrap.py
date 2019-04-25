@@ -108,17 +108,36 @@ disp_value = lbe.apply_coil_pressure2(body,
                                       coil,
                                       thickness,
                                       smooth_passes=6,
-                                      apply_disp=True)
+                                      apply_disp=False)
+disp_weight = numpy.asarray(disp_value)
+disp_max = numpy.amin(disp_weight)
+disp_weight = disp_weight/disp_max
 
 
+# displacement value to weight (vertex groups)
+scene.objects.active = body
+bpy.ops.object.vertex_group_add()
+vertgroup = body.vertex_groups[-1]
+vertgroup.name = 'CoilPressure'
+for i in range(len(disp_weight)):
+    vertgroup.add([i], disp_weight[i], type='REPLACE')
+
+# add 'displace' modifier
+bpy.ops.object.modifier_add(type='DISPLACE')
+dispmod = body.modifiers['Displace']
+dispmod.vertex_group = 'CoilPressure'
+#dispmod.mid_level = 0.0
+dispmod.strength = disp_max
+
+
+# displacement value to vertex color
 print("displacement value --> vertex color")
 disp_value = numpy.asarray(disp_value)
 # remap to [0,1]
 disp_min = numpy.amin(disp_value)
 disp_max = numpy.amax(disp_value)
-disp_value = (disp_value - disp_min)/(disp_max - disp_min)
-
-# displacement value to vertex color
+disp_rng = disp_max - disp_min
+disp_value = (disp_value - disp_min)/disp_rng
 body.data.vertex_colors.new()
 vertexcolor = body.data.vertex_colors[0].data
 for f in body.data.polygons:

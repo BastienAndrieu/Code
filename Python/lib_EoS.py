@@ -28,6 +28,47 @@ def one_parameter_EoS(g, dg, d2g, r, dr, v):
             e[i,j] = occ + rcc*(cv[j]*bu + sv[j]*bv)
     return e
 ##########################################################
+def canal_surface(g, dg, d2g, r, dr, v):
+    m = g.shape[1]
+    n = len(v)-1
+    e = np.zeros((m,n,3))
+    vmin = np.amin(v)
+    vmax = np.amax(v)
+    v = 2.0*np.pi*(v - vmin)/(vmax - vmin)
+    cv = np.cos(v)
+    sv = np.sin(v)
+    for i in range(m):
+        normdg = norm2(dg[:,i])
+        invnormdg = 1.0/normdg
+        # Caracteristic circle center and radius
+        sina = dr[i]*invnormdg
+        occ = g[:,i] - r[i]*sina*dg[:,i]*invnormdg
+        rcc = r[i]*np.sqrt(1. - sina**2)
+        # ~Frenet frame
+        T = dg[:,i]*invnormdg
+        if i > 0:
+            N = Nprev
+            N = N - np.dot(N,T)*T
+            N = N/norm2(N)
+        else:
+            d2g_dg = np.cross(d2g[:,i], dg[:,i])
+            normd2g_dg = norm2(d2g_dg)
+            if normd2g_dg < 1.e-6:
+                j = np.argmin(np.absolute(T))
+                N = np.zeros(3)
+                N[j] = 1.0
+                N = N - np.dot(N,T)*T
+                N = N/norm2(N)
+            else:
+                invnormd2g_dg = 1.0/normd2g_dg
+                #curvature = normd2g_dg*invnormdg**3
+                N = np.cross(dg[:,i],d2g_dg)*invnormdg*invnormd2g_dg
+        Nprev = N
+        B = np.cross(T,N)
+        for j in range(n):
+            e[i,j] = occ + rcc*(cv[j]*N + sv[j]*B)
+    return e
+##########################################################
 def two_parameter_EoS(s, dus, dvs, r, dur, dvr):
     m = s.shape[1]
     n = s.shape[2]

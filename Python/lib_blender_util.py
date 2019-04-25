@@ -126,7 +126,9 @@ def pydata_to_polyline(points,
     polyline.points.add(len(points)-1)
 
     for i, p in enumerate(points):
-        polyline.points[i].co = (p[0], p[1], p[2], 1)
+        for j in range(len(p)):
+            polyline.points[i].co[j] = float(p[j])
+    polyline.points[i].co[3] = 1
 
     obj.data.resolution_u     = resolution_u
     obj.data.fill_mode        = fill_mode
