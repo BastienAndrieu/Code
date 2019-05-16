@@ -154,8 +154,27 @@ def polyline_to_pydata(curv):
 
 
 
-
-
+###
+def obb_to_mesh(center=[0,0,0], ranges=[1,1,1], axes=[[1,0,0],[0,1,0],[0,0,1]]):
+    """
+    center = Vector(center)
+    verts = []
+    for k in range(2):
+        for j in range(2):
+            for i in range(2):
+                v = center +
+                Vector(axes[0])*ranges[0]*(-1)**i +
+                Vector(axes[1])*ranges[1]*(-1)**j +
+                Vector(axes[2])*ranges[2]*(-1)**k
+    faces = []
+    """
+    bpy.context.scene.objects.active = None
+    bpy.ops.mesh.primitive_cube_add(location=center,
+                                    rotation=Matrix(axes).to_euler())
+    obj = bpy.context.active_object
+    obj.scale = ranges
+    return obj
+###########################
 
 
 ### Test wether a point is directly visble from a camera ###
