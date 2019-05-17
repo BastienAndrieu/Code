@@ -156,6 +156,51 @@ def bivariate_to_univariate(c, ivar, ival):
                     a[i] = a[i] + c[i,j]*(-1)**j       
     return a
 ##########################################
+def chgvar1(c, x0, x1):
+    a = 0.5*(x1 - x0)
+    twob = x1 + x0
+    b = 0.5*twob
+
+    col = np.zeros((3,c.shape[0]))
+
+    s = np.zeros(c.shape)
+    if c.shape[0] == 1:
+        s[0] = c[0]
+        return s
+    col[2,0] = 1.0
+    col[1,0] = b
+    col[1,1] = a
+    s[0] = c[0] + b*c[1]
+    s[1] = a*c[1]
+
+    for n in range(2,c.shape[0]):
+        col[0,0:n] = twob*col[1,0:n]
+        col[0,0:n-1] = col[0,0:n-1] - col[2,0:n-1]
+        col[0,1] = col[0,1] + a*col[1,0]
+        col[0,1:n+1] = col[0,1:n+1] + a*col[1,0:n]
+        col[0,0:n-1] = col[0,0:n-1] + a*col[1,1:n]
+
+        if len(c.shape) < 2:
+            s[0:n+1] = s[0:n+1] + c[n]*col[0,0:n+1]
+        else:
+            for j in range(c.shape[1]):
+                s[0:n+1,j] = s[0:n+1,j] + c[n,j]*col[0,0:n+1]
+
+        if n < c.shape[0]-1:
+            col[[1,2]] = col[[0,1]]
+    return s
+##########################################
+def chgvar2(c, xy0, xy1):
+    s = np.zeros(c.shape)
+    if len(c.shape) < 3:
+        s = chgvar1(c, xy0[0], xy1[0])
+        s = chgvar1(c.T, xy0[1], xy1[1]).T
+    else:
+        for k in range(c.shape[2]):
+            s[:,:,k] = chgvar1(c[:,:,k], xy0[0], xy1[0])
+            s[:,:,k] = chgvar1(s[:,:,k].T, xy0[1], xy1[1]).T
+    return s
+##########################################
 def obb_chebyshev1(c):
     # center
     center = c[0]

@@ -3,12 +3,29 @@ import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python/')
 import lib_chebyshev as cheb
 import lib_blender_util as lbu
+import lib_color as lco
 import numpy
 from numpy.polynomial.chebyshev import chebval, chebgrid2d
 
 sys.path.append('/stck/bandrieu/Bureau/Python/mylibs/')
 import my_lib as myl
 
+
+##################################################################
+matobb = bpy.data.materials.new('mat_OBB')
+matobb.diffuse_color = [.8, 0.5, 0.25]
+matobb.diffuse_intensity = 1
+matobb.specular_intensity = 0
+matobb.use_transparency = True
+matobb.alpha = 0
+#matobb.emit = 0.5
+#matobb.raytrace_transparency.fresnel = 2
+matobb.use_raytrace = False
+
+m = 100
+u = numpy.linspace(-1,1,m)
+
+cl = lco.sample_colormap('IR',4)
 ##################################################################
 scene = bpy.context.scene
 cam = scene.camera
@@ -28,15 +45,19 @@ lbu.clear_scene(meshes=True, lamps=False, cameras=False)
 
 # read polynomial coefficients in Chebyshev basis
 #filecoefs = '/stck/bandrieu/Bureau/Manuscrit/memoire_bak_29_03_2019/figures/code/parametric_patch.cheb'
-filecoefs = '/d/bandrieu/GitHub/FFTsurf/test/coeffstest/C1_test01.txt'
+filecoefs = '/d/bandrieu/GitHub/FFTsurf/test/coeffstest/C2_test31.txt'
 c = cheb.read_polynomial2(filecoefs)
 
 # compute Oriented Bounding Box
 center, ranges, axes = cheb.obb_chebyshev2(c)
 
+# add OBB as polyhedron
+obb = lbu.obb_to_mesh(center, ranges, axes)
+obb.name = 'OBB0'
+
+
+"""
 # add tensor product patch
-m = 100
-u = numpy.linspace(-1,1,m)
 xyz = chebgrid2d(u, u, c)
 myl.addTensorProductPatch(xyz[0], xyz[1], xyz[2],
                           name="patch",
@@ -44,73 +65,29 @@ myl.addTensorProductPatch(xyz[0], xyz[1], xyz[2],
                           location=[0,0,0],
                           smooth=True,
                           color=[1,1,1], alpha=1, emit=0.0)
-
-# add OBB as polyhedron
-obb = lbu.obb_to_mesh(center, ranges, axes)
-obb.name = 'OBB0'
-matobb = bpy.data.materials.new('mat_OBB')
-matobb.diffuse_color = [.8, 0.5, 0.25]
-matobb.diffuse_intensity = 1
-matobb.specular_intensity = 0
-matobb.use_transparency = True
-matobb.alpha = 0
-#matobb.emit = 0.5
-#matobb.raytrace_transparency.fresnel = 2
-matobb.use_raytrace = False
-obb.data.materials.append(matobb)
-
-
-obb.show_wire = True
-obb.show_all_edges = True
-obb.show_transparent = True
-
-
-
-"""
-# add OBB axes
-for i in range(3):
-    axi = lbu.pydata_to_polyline([center, center+ranges[i]*axes[:,i]],
-                                 name='axe_'+str(i),
-                                 thickness=1e-2)
-    axi.hide_render = True                     
 """
 
+###
+uv0 = numpy.zeros(2)
+uv1 = numpy.zeros(2)
+for jchild in range(2):
+    uv0[1] = -1.0 + jchild
+    uv1[1] = jchild
+    for ichild in range(2):
+        uv0[0] = -1.0 + ichild
+        uv1[0] = ichild
 
-#####
-"""
-for ivar in range(2):
-    for ival in range(2):
-        a = cheb.bivariate_to_univariate(c, ivar, ival)
-        xyz = chebval(u, a)
-        obj = lbu.pydata_to_polyline(xyz.T,
-                                     name='iso_'+str(ival)+'_'+str(ivar),
-                                     thickness=2e-3)
-        obj.hide_render = True
-        center, ranges, axes = cheb.obb_chebyshev1(a)
+        s = cheb.chgvar2(c, uv0, uv1)
+        xyz = chebgrid2d(u, u, s)
+        myl.addTensorProductPatch(xyz[0], xyz[1], xyz[2],
+                                  name='sub_'+str(ichild)+'_'+str(jchild),
+                                  periodu=False, periodv=False,
+                                  location=[0,0,0],
+                                  smooth=True,
+                                  color=cl[2*jchild + ichild], alpha=1, emit=0.0)
+        center, ranges, axes = cheb.obb_chebyshev2(s)
         obb = lbu.obb_to_mesh(center, ranges, axes)
-        obb.name = 'OBB'+str(1 + ival + 2*ivar)
-        obb.data.materials.append(matobb)
-"""
-
-
-####
-uv0 = [-1.0,-1.0]#2*numpy.random.rand(2) - 1
-uv1 = [0.0,0.0]#2*numpy.random.rand(2) - 1
-
-s = cheb.chgvar2(c, uv0, uv1)
-xyz = chebgrid2d(u, u, s)
-myl.addTensorProductPatch(xyz[0], xyz[1], xyz[2],
-                          name="patch_sub",
-                          periodu=False, periodv=False,
-                          location=[0,0,0],
-                          smooth=True,
-                          color=[1,1,1], alpha=1, emit=0.0)
-
-# add OBB as polyhedron
-center, ranges, axes = cheb.obb_chebyshev2(s)
-obb = lbu.obb_to_mesh(center, ranges, axes)
-obb.name = 'OBB1'
-obb.data.materials.append(matobb)
+        obb.name = 'OBB'+str(1+2*jchild + ichild)
 
 
 
@@ -121,8 +98,9 @@ obb.data.materials.append(matobb)
 # freestyle
 bpy.ops.object.select_all(action='DESELECT')
 
-for i in range(2):
+for i in range(5):
     obj = bpy.data.objects['OBB'+str(i)]
+    obj.data.materials.append(matobb)
     obj.show_wire = True
     obj.show_all_edges = True
     obj.show_transparent = True
@@ -143,7 +121,7 @@ for lineset in freestyle.linesets:
     lineset.select_by_group = True
     lineset.group = bpy.data.groups['obb_group']
 freestyle.linesets[0].visibility = 'VISIBLE'
-freestyle.linesets[1].visibility = 'RANGE'
+freestyle.linesets[1].visibility = 'HIDDEN'#'RANGE'
 freestyle.linesets[1].qi_start = 1
 freestyle.linesets[1].qi_end = 1
 
