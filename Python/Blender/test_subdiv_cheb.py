@@ -26,6 +26,8 @@ m = 100
 u = numpy.linspace(-1,1,m)
 
 cl = lco.sample_colormap('IR',4)
+
+AABB = True
 ##################################################################
 scene = bpy.context.scene
 cam = scene.camera
@@ -45,11 +47,11 @@ lbu.clear_scene(meshes=True, lamps=False, cameras=False)
 
 # read polynomial coefficients in Chebyshev basis
 #filecoefs = '/stck/bandrieu/Bureau/Manuscrit/memoire_bak_29_03_2019/figures/code/parametric_patch.cheb'
-filecoefs = '/d/bandrieu/GitHub/FFTsurf/test/coeffstest/C2_test31.txt'
+filecoefs = '/d/bandrieu/GitHub/FFTsurf/test/coeffstest/C1_test01.txt'#'C2_test31.txt'
 c = cheb.read_polynomial2(filecoefs)
 
 # compute Oriented Bounding Box
-center, ranges, axes = cheb.obb_chebyshev2(c)
+center, ranges, axes = cheb.obb_chebyshev2(c, AABB)
 
 # add OBB as polyhedron
 obb = lbu.obb_to_mesh(center, ranges, axes)
@@ -85,7 +87,7 @@ for jchild in range(2):
                                   location=[0,0,0],
                                   smooth=True,
                                   color=cl[2*jchild + ichild], alpha=1, emit=0.0)
-        center, ranges, axes = cheb.obb_chebyshev2(s)
+        center, ranges, axes = cheb.obb_chebyshev2(s, AABB)
         obb = lbu.obb_to_mesh(center, ranges, axes)
         obb.name = 'OBB'+str(1+2*jchild + ichild)
 

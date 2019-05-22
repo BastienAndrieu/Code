@@ -201,20 +201,23 @@ def chgvar2(c, xy0, xy1):
             s[:,:,k] = chgvar1(s[:,:,k].T, xy0[1], xy1[1]).T
     return s
 ##########################################
-def obb_chebyshev1(c):
+def obb_chebyshev1(c, AABB=False):
     # center
     center = c[0]
 
     # axes
-    axes = np.zeros((3,3))
-    mag = np.sqrt(np.sum(c[1]**2))
-    axes[0] = c[1]/mag
-
-    i = np.argmin(np.absolute(axes[0]))
-    axes[1,i] = 1.0
-    axes[1] = axes[1] - np.dot(axes[1], axes[0])*axes[0]
-    axes[1] = axes[1]/np.sqrt(np.sum(axes[1]**2))
-    axes[2] = np.cross(axes[0], axes[1])
+    if AABB:
+        axes = np.eye(3)
+    else:
+        axes = np.zeros((3,3))
+        mag = np.sqrt(np.sum(c[1]**2))
+        axes[0] = c[1]/mag
+        
+        i = np.argmin(np.absolute(axes[0]))
+        axes[1,i] = 1.0
+        axes[1] = axes[1] - np.dot(axes[1], axes[0])*axes[0]
+        axes[1] = axes[1]/np.sqrt(np.sum(axes[1]**2))
+        axes[2] = np.cross(axes[0], axes[1])
 
     # ranges
     ranges = []
@@ -226,30 +229,33 @@ def obb_chebyshev1(c):
     
     return center, ranges, axes.T
 ##########################################
-def obb_chebyshev2(c):   
+def obb_chebyshev2(c, AABB=False):   
     # center
     center = c[0,0]
 
     # axes
-    axes = np.zeros((3,3))
-    vec = [c[1,0], c[0,1]]
-    mag = np.array([np.sum(vec[0]**2), np.sum(vec[1]**2)])
-    i = np.argmax(mag)
-    mag = np.sqrt(mag)
-    axes[0] = vec[i]/mag[i]
-    i = (i+1)%2
-
-    axes[2] = np.cross(axes[0], vec[i])
-    mag = np.sqrt(np.sum(axes[2]**2))
-    if mag < 1.e-8:
-        i = np.argmin(np.absolute(axes[0]))
-        axes[1,i] = 1.0
-        axes[1] = axes[1] - np.dot(axes[1], axes[0])*axes[0]
-        axes[1] = axes[1]/np.sqrt(np.sum(axes[1]**2))
-        axes[2] = np.cross(axes[0], axes[1])
+    if AABB:
+        axes = np.eye(3)
     else:
-        axes[2] = axes[2]/mag
-        axes[1] = np.cross(axes[2], axes[0])
+        axes = np.zeros((3,3))
+        vec = [c[1,0], c[0,1]]
+        mag = np.array([np.sum(vec[0]**2), np.sum(vec[1]**2)])
+        i = np.argmax(mag)
+        mag = np.sqrt(mag)
+        axes[0] = vec[i]/mag[i]
+        i = (i+1)%2
+
+        axes[2] = np.cross(axes[0], vec[i])
+        mag = np.sqrt(np.sum(axes[2]**2))
+        if mag < 1.e-8:
+            i = np.argmin(np.absolute(axes[0]))
+            axes[1,i] = 1.0
+            axes[1] = axes[1] - np.dot(axes[1], axes[0])*axes[0]
+            axes[1] = axes[1]/np.sqrt(np.sum(axes[1]**2))
+            axes[2] = np.cross(axes[0], axes[1])
+        else:
+            axes[2] = axes[2]/mag
+            axes[1] = np.cross(axes[2], axes[0])
 
     # ranges
     ranges = []
