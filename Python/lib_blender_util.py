@@ -94,12 +94,13 @@ def add_point_light(name="lamp",
 ### Insert mesh from pydata ###
 def pydata_to_mesh(verts,
                    faces,
+                   edges=[],
                    name='mesh'):
     msh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, msh)
     bpy.context.scene.objects.link(obj)
-    msh.from_pydata(verts,[],faces)
-    msh.update(calc_edges=True)
+    msh.from_pydata(verts,edges,faces)
+    if len(edges) < 1: msh.update(calc_edges=True)
     return obj
 ###########################
 

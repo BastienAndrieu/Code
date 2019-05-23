@@ -168,6 +168,67 @@ function set_config2()
 }
 
 
+//
+function compute_joint_positions(target_pos, joints, iteration_max) {
+	var root_pos = DzVec3();
+	var shoulder_pos = DzVec3();
+	var elbow_pos    = DzVec3();
+	var wrist_pos    = DzVec3();
+
+	// initial joint positions
+	// (...)
+	var root_pos_tmp = root_pos;
+
+	// initial bone_lengths
+	var collar_length  = (shoulder_pos.subtract(root_pos)).lenght();
+	var arm_length     = (elbow_pos.subtract(shoulder_pos)).lenght();
+	var forearm_length = (wrist_pos.subtract(elbow_pos)).lenght();
+	
+	var iteration;
+	for (iteration = 0; iteration < iteration_max; iteration++) {
+  		// target-end effector distance
+		var dpos = target_pos.subtract(wrist_pos));
+		var dist = dpos.length();
+		if ( dist < wTol.value )
+		{
+			return(true);
+		}
+
+		// forward reaching
+		wrist_pos    = target_pos;
+		elbow_pos    = forward_joint_position(wrist_pos, elbow_pos, forearm_length);
+		shoulder_pos = forward_joint_position(elbow_pos, shoulder_pos, arm_length);
+		root_pos_tmp = forward_joint_position(shoulder_pos, root_pos, collar_length);
+
+		// backward reaching
+		shoulder_pos = backward_joint_position(root_pos, shoulder_pos, collar_length);
+		elbow_pos    = backward_joint_position(shoulder_pos, elbow_pos, arm_length);
+		wrist_pos    = backward_joint_position(elbow_pos, wrist_pos, forearm_length);
+	}
+}
+
+
+
+function forward_joint_position(child_pos, parent_pos, bone_length) {
+	var vec = parent_pos.subtract(child_pos);
+	vec.setLength(bone_length);
+	return(child_pos.add(vec));
+}
+
+
+function backward_joint_position(parent_pos, child_pos, bone_length) {
+	var vec = child_pos.subtract(parent_pos);
+	vec.setLength(bone_length);
+	return(parent_pos.add(vec));
+}
+
+
+
+/*
+function compute_joint_rotations() {
+}
+*/
+
 
 //
 /*
