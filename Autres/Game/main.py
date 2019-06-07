@@ -1,4 +1,4 @@
-import character, battle, skill, status
+import character, battle, skill, status, item
 
 lv_lut = character.LevelLUT(levels=[
     character.Level(xp=0,
@@ -25,6 +25,10 @@ hero.hpmax = 20
 hero.spmax = 10
 hero.hp = hero.hpmax
 hero.sp = hero.spmax
+hero.force = 10
+hero.speed = 10
+hero.precision = 10
+hero.defense = 10
 hero.status = [
     status.Status(name="Asleep"),
     status.Status(name="Poison")]
@@ -42,10 +46,24 @@ hero.rigging_xp = 0
 
 
 party = character.Party(members=[],
-                        gold=100)
+                        gold=100,
+                        inventary=item.Inventary(items=[], weightmax=100))
 
 
-loot = battle.Loot(xp=120, gold=40, items=[])
+ring = item.Equipable()
+ring.name = "Ring of Power"
+ring.use_in_battle = False
+ring.weight = 0
+ring.nb_use_max = -1
+ring.delta_force = 100
+ring.delta_speed = 100
+ring.delta_precision = 100
+ring.delta_defense = 100
+
+
+loot = battle.Loot(xp=120,
+                   gold=40,
+                   items=[ring])
 
 
 stat = party.join(hero)

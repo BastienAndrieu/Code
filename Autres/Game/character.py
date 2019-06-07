@@ -9,8 +9,9 @@ support battle with mutliple enemies (enemy party?)
 class Character:
     """
     Base class for characters.
-    Attributes :
+    Attributes:
     - name
+    - gender ('M', 'F', None)
     """
     def __init__(self, name="", gender=None):
         self.name = name
@@ -29,16 +30,30 @@ class Battler(Character):
     """
     Class for characters involved in battles.
     Attributes : 
-    - hp (health points)
-    - sp (special points)
+    - hp: health points
+    - sp: special points
     - hpmax
     - spmax
-    - status (ADD STATUS CLASS)
-    - skills (ADD SKILL CLASS)
+    - status
+    - skills
     """
-    def __init__(self, hp=0, sp=0, hpmax=0, spmax=0, status=None, skills=None):
+    def __init__(self,
+                 hp=0,
+                 sp=0,
+                 hpmax=0,
+                 spmax=0,
+                 force=0,
+                 speed=0,
+                 precision=0,
+                 defense=0,
+                 status=None,
+                 skills=None):
         self.hp = hp
         self.sp = sp
+        self.force = force
+        self.speed = speed
+        self.precision = precision
+        self.defense = defense
         self.status = status
         self.skills = skills
         return
@@ -228,9 +243,10 @@ class Party:
     Gathers shared attributes:
     - gold
     """
-    def __init__(self, members=None, gold=0):
+    def __init__(self, members=None, gold=0, inventary=None):
         self.members = members
         self.gold = gold
+        self.inventary = inventary
         return
     ####
     def join(self, hero=None, verbose=True):
@@ -266,6 +282,12 @@ class Party:
             if verbose:
                 print("Party looses " + str(delta_gold) + "G!")
             return True
+    ####
+    def add_to_inventary(self, item, verbose=True):
+        if verbose:
+            print("Party finds '" + item.name + "'!")
+        self.inventary.items.append(item)
+        return True
 ###########################################
 
 class Level:
