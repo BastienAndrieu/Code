@@ -1,5 +1,7 @@
 import numpy
 import sys
+sys.path.append('/d/bandrieu/GitHub/Code/Python/')
+from lib_compgeom import get_bounding_box, is_inside_polygon
 from PIL import Image, ImageDraw
 
 ####################################################################
@@ -12,31 +14,6 @@ def make_box(center, ranges, hole=False):
     edges = numpy.array([[0,1],[1,3],[3,2],[2,0]])
     if hole: edges = numpy.flip(edges, axis=1)
     return verts, edges
-####################################################################
-def get_bounding_box(verts, xymrg=0.):
-    xymin = numpy.amin(verts, axis=0)
-    xymax = numpy.amax(verts, axis=0)
-    xyrng = xymax - xymin
-    xymin = xymin - xymrg*xymrg
-    xymax = xymax + xymrg*xymrg
-    return xymin, xymax
-####################################################################
-def is_inside_polygon(point, verts, edges, BIG=10):
-    xymin, xymax = get_bounding_box(numpy.vstack([point, verts]))
-    M = 2*max(numpy.hypot(xymin[0], xymin[1]), numpy.hypot(xymax[0], xymax[1]))
-    
-    a = 0.5*numpy.pi*numpy.random.rand()
-    c = numpy.cos(a)
-    s = numpy.sin(a)
-    uvb = point + M*numpy.array([c, s])
-
-    inside = False
-    for e in edges:
-        v1 = verts[e[0]]
-        v2 = verts[e[1]]
-        if (((v1[0] - point[0])*s > (v1[1] - point[1])*c) != ((v2[0] - point[0])*s > (v2[1] - point[1])*c)) and ((point[0] - v1[0])*(v1[1] - v2[1]) > (point[1] - v1[1])*(v1[0] - v2[0])) != ((uvb[0] - v1[0])*(v1[1] - v2[1]) > (uvb[1] - v1[1])*(v1[0] - v2[0])):
-            inside = not inside
-    return inside
 ####################################################################
 def sample_domain(verts, edges, samples):
     xymin, xymax = get_bounding_box(verts, xymrg=0.5/float(samples - 1))
