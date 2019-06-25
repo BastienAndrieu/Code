@@ -94,8 +94,9 @@ def add_point_light(name="lamp",
 ### Insert mesh from pydata ###
 def pydata_to_mesh(verts,
                    faces,
-                   edges=[],
+                   edges=None,
                    name='mesh'):
+    if edges is None: edges = []
     msh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, msh)
     bpy.context.scene.objects.link(obj)
@@ -231,6 +232,7 @@ def helix_nurbs(height,
 import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python/')
 import lib_chebyshev as cheb
+from lib_linalg import matmul
 
 def bezier_surface_to_chebyshev(bsurf):
     spline = bsurf.data.splines[0]
@@ -248,6 +250,7 @@ def bezier_surface_to_chebyshev(bsurf):
     N = cheb.B2Cmatrix(nb)
     C = numpy.zeros((mb,nb,3))
     for dim in range(3):
+        """
         for i in range(mb):
             for j in range(nb):
                 for k in range(nb):
@@ -255,5 +258,33 @@ def bezier_surface_to_chebyshev(bsurf):
                     for l in range(mb):
                         MB += M[i,l]*B[l,k,dim]
                     C[i,j,dim] += MB*N[j,k]
+        """
+        C[:,:,dim] = matmul(matmul(M, B[:,:,dim]), N.T)
     return C
 ###########################
+
+
+
+def tensor_product_mesh_vf(x, y, z, periodu=False, periodv=False):
+    m = x.shape[0]
+    n = x.shape[1]
+
+    verts = []
+    for j in range(n):
+        for i in range(m):
+            verts.append([x[i,j], y[i,j], z[i,j]])
+
+    faces = []
+    mf = m
+    nf = n
+    if not periodu:
+        mf -= 1
+    if not periodv:
+        nf -= 1
+    for j in range(nf):
+        for i in range(mf):
+            faces.append([j*m + i,
+                          j*m + (i+1)%m,
+                          ((j+1)%n)*m + (i+1)%m,
+                          ((j+1)%n)*m + i])
+    return verts, faces

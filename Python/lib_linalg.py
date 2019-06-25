@@ -56,3 +56,13 @@ def matvecprod(A,b):
         for j in range(n):
             c[i] += A[i,j]*b[j]
     return c
+
+
+def matmul(A,B):
+    m, n = A.shape
+    n, p = B.shape
+    C = numpy.zeros((m,p))
+    for i in range(m):
+        for j in range(p):
+            C[i,j] = numpy.dot(A[i,:], B[:,j])
+    return C
