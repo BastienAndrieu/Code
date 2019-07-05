@@ -4,6 +4,7 @@ import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python')
 import lib_bezier as lbez
 
+
 b = numpy.array([[0,0],
                  [0.3,1],
                  [1,1],
@@ -12,6 +13,11 @@ b = numpy.array([[0,0],
                  [1.5,-0.5],
                  [2,0]])
 b = b[0:4]
+"""
+b = numpy.array([(0,0), (2,1)])
+"""
+
+
 db = lbez.diff(b)
 
 n = 100
@@ -25,13 +31,16 @@ for i in range(n):
 """
 p = lbez.eval_bezier_curve(b, t)
 dp = lbez.eval_bezier_curve(db, t)
+print dp
 
 fig, ax = plt.subplots()
 
 ax.plot(p[:,0], p[:,1], 'k-')
 ax.plot(b[:,0], b[:,1], 'r.-')
 
-ax.quiver(p[:,0], p[:,1], dp[:,0], dp[:,1], color='b')
+#ax.quiver(p[:,0], p[:,1], dp[:,0], dp[:,1], color='b')
+ax.quiver(p[:,0], p[:,1], -dp[:,1], dp[:,0], color='b')
+
 #ax.plot(dp[:,0], dp[:,1], 'b')
 
 ax.set_aspect('equal')

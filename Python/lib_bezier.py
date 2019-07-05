@@ -22,6 +22,9 @@ def de_casteljau(b, t):
     d = b.shape[0]-1
     n = d+1
 
+    if n == 1:
+        return b[0], b[0], b[0]
+
     bl = numpy.zeros(b.shape)
     br = numpy.zeros(b.shape)
 
@@ -40,11 +43,14 @@ def de_casteljau(b, t):
 
 
 def eval_bezier_curve(b, t):
-    n = len(t)
     dim = b.shape[1]
-    p = numpy.zeros((n,dim))
-    for i in range(n):
-        f, bl, br = de_casteljau(b, t[i])
-        for j in range(dim):
-            p[i,j] = f[j]
+    if isinstance(t, float) or isinstance(t, int):
+        p, bl, br = de_casteljau(b, t)
+    else:
+        n = len(t)
+        p = numpy.zeros((n,dim))
+        for i in range(n):
+            f, bl, br = de_casteljau(b, t[i])
+            for j in range(dim):
+                p[i,j] = f[j]
     return p
