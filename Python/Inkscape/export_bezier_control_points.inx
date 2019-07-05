@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <_name>Export Bezier control points</_name>
+  <id>org.ekips.filter.export_bezier_control_points</id>
+  <dependency type="executable" location="extensions">export_bezier_control_points.py</dependency>
+  <dependency type="executable" location="extensions">inkex.py</dependency>
+  <dependency type="executable" location="extensions">simplepath.py</dependency>
+  <dependency type="executable" location="extensions">simplestyle.py</dependency>
+  <param name="output" type="string" _gui-text="Output filename">none</param>
+  <effect>
+    <object-type>all</object-type>
+    <effects-menu>
+       <submenu _name="Export"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command reldir="extensions" interpreter="python">export_bezier_control_points.py</command>
+  </script>
+</inkscape-extension>

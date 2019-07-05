@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <_name>My Second Extension</_name>
+  <id>org.ekips.filter.my_second_extension</id>
+  <dependency type="executable" location="extensions">my_second_extension.py</dependency>
+  <dependency type="executable" location="extensions">inkex.py</dependency>
+  <dependency type="executable" location="extensions">simplepath.py</dependency>
+  <dependency type="executable" location="extensions">simplestyle.py</dependency>
+  <param name="tvalue" type="float" min="0.0" max="1.0"
+	 _gui-text="t value">0.5</param>
+  <param name="scale" type="float" min="-1000.0" max="1000.0"
+	 _gui-text="Normal scale">1.0</param>
+  <effect>
+    <object-type>all</object-type>
+    <effects-menu>
+       <submenu _name="Examples"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command reldir="extensions" interpreter="python">my_second_extension.py</command>
+  </script>
+</inkscape-extension>
