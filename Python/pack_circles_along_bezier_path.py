@@ -17,6 +17,9 @@ sys.path.append('/d/bandrieu/GitHub/Code/Python/')
 import lib_bezier as lbez
 
 
+EPSfp = 1e-15
+HUGEfp = 1e15
+
 #####################################
 class Curve:
     def __init__(self, x):
@@ -29,9 +32,23 @@ class Curve:
 
     def evald(self, t):
         return lbez.eval_bezier_curve(self.xt, t)
+    
+    def evald2(self, t):
+        return lbez.eval_bezier_curve(self.xtt, t)
+
+    def curvature(self, t):
+        xt = self.evald(t)
+        xtt = self.evald2(t)
+        sqr_xt = sum(xt**2, axis=1)
+        denom = maximum(EPSfp, minimum(HUGEfp, sqr_xt*sqrt(sqr_xt)))
+        det = xt[:,0]*xtt[:,1] - xt[:,1]*xtt[:,0]
+        return det/denom
+
+    
 
     def update(self):
         self.xt = lbez.diff(self.x)
+        self.xtt = lbez.diff(self.xt)
         return
 #####################################
 def radius_function(x, y):
@@ -62,7 +79,7 @@ def newton_circle_packing(path, t, oprev, rprev, tol, itmax=100):
 
         res = o - oprev
 
-        f = dot(res, res) - (r + rprev)**2
+        f = dot(res, res) - (r + rprev + SPACE_BETWEEN_CIRCLES)**2
         print '\t\tit.#%d, resf = %s' % (it, sqrt(abs(f))/r)
         if abs(f) < (tol*r)**2:
             converged = True
@@ -143,7 +160,7 @@ for curve in path:
 """
 # PLOT CURVE WITH SAMPLE CIRCLES
 t = linspace(0,1,100)
-tc = linspace(0,1,20)
+tc = linspace(0,1,5)
 
 
 fig, ax = plt.subplots()
@@ -151,6 +168,8 @@ fig, ax = plt.subplots()
 for curve in path:
     xy = curve.eval(t)
     xyc = curve.eval(tc)
+    xytc = curve.evald(tc)
+    kc = curve.curvature(tc)
     ax.plot(xy[:,0], xy[:,1], 'k')
     ax.plot(xyc[:,0], xyc[:,1], 'r.')
 
@@ -165,8 +184,24 @@ for curve in path:
             )
         )
 
+        rc = 1/kc[i]
+        if rc < 0 and abs(rc) < r:
+            nor = numpy.array([-xytc[i][1], xytc[i][0]])/hypot(xytc[i][0], xytc[i][1])
+            o = xyc[i] + rc*nor
+            ax.add_artist(
+                plt.Circle(
+                    o,
+                    abs(rc),
+                    ec='y',
+                    fill=False
+                )
+            )
+            #ax.plot([o[0], xyc[i][0]], [o[1], xyc[i][1]], 'y')
+
 ax.set_aspect('equal')
 plt.show()
+
+exit()
 """
 ########################################################
 
@@ -176,6 +211,7 @@ plt.show()
 TOL = 1e-1
 FRAC_DT_PREDICTOR = 1
 START_FROM_ENDPOINT = True
+SPACE_BETWEEN_CIRCLES = 0#2.2e-2
 
 centers = []
 pend = path[-1].eval(1.0)
@@ -384,7 +420,7 @@ if True:
         )
 
 #ax.plot(centers_xy[:,0], centers_xy[:,1], 'b.')
-if True:
+if False:
     cl = ['r', 'b']
     for i in range(2):
         """
@@ -392,6 +428,10 @@ if True:
             ax.plot(xy[:,0], xy[:,1], color=cl[i])
         """
         ax.plot(eoc[i][:,0], eoc[i][:,1], color=cl[i])
+else:
+    for i in range(2):
+        for xy in eoc_branches[i]:
+            ax.plot(xy[:,0], xy[:,1])
 
 #for x, y in inter:
 #    ax.plot(x, y, 'k*')

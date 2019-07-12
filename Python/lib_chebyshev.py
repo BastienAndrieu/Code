@@ -276,4 +276,24 @@ def read_polynomial2(filename):
         for j in range(n):
             for i in range(m):
                 c[i,j,k] = float(f.readline())
+    f.close()
+    return c
+##########################################
+def write_polynomial2(c, filename):
+    f = open(filename, 'w')
+    f.write('%d %d %d\n' % (c.shape[0], c.shape[1], c.shape[2]))
+    for k in range(c.shape[2]):
+        for j in range(c.shape[1]):
+            for i in range(c.shape[0]):
+                f.write('%s\n' % c[i,j,k])
+    f.close()
+    return
+###########################
+def flip_polynomial2(c, flip_u=False, flip_v=False):
+    if flip_u:
+        for i in range(1,c.shape[0],2):
+            c[i,:,:] = -c[i,:,:]
+    if flip_v:
+        for j in range(1,c.shape[1],2):
+            c[:,j,:] = -c[:,j,:]
     return c

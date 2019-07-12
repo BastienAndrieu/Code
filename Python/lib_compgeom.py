@@ -3,7 +3,13 @@ import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python/')
 from lib_linalg import matmul, matvecprod
 
-
+#############################################################
+def diff_angle(a1, a2):
+    c1 = cos(a1)
+    s1 = sin(a1)
+    c2 = cos(a2)
+    s2 = sin(a2)
+    return atan2(s1*c2 - c1*s2, c1*c2 + s1*s2)
 ####################################################################
 def get_bounding_box(points, xymrg=0.):
     xymin = numpy.amin(points, axis=0)
