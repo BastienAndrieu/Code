@@ -217,3 +217,146 @@ def points_right_to_line(xy, part, p1, p2):
         if dist > 0:
             points.append(P)
     return points
+
+##################
+def circumcircle(A, B, C):
+    A = numpy.asarray(A)
+    B = numpy.asarray(B)
+    C = numpy.asarray(C)
+            
+    a = A - C
+    b = B - C
+
+    asqr = numpy.sum(a**2)
+    bsqr = numpy.sum(b**2)
+
+    d = asqr*b - bsqr*a
+    denom = asqr*bsqr - numpy.dot(a,b)**2
+    if denom < 1e-15:
+        ctr = (A + B + C)/3.
+        rad = 0
+    else:
+        ctr = 0.5*(numpy.dot(d,b)*a - numpy.dot(d,a)*b)/denom
+        rad = numpy.sqrt(numpy.sum(ctr**2))
+        ctr = ctr + C
+    return (ctr, rad)
+####################################################################
+def area_LL_rectangle(long0, long1, lat0, lat1):
+    return (numpy.sin(lat1) - numpy.sin(lat0))*(long1 - long0)
+####################################################################
+"""
+def minimum_area_LL_bounding_box(points):
+    # project points onto unit sphere
+    n = len(points)
+    s = numpy.zeros((n,3))
+    for i in range(n):
+        s[i] = points[i]/numpy.sqrt(numpy.sum(points[i]**2))
+    
+    # 'centroid' on sphere
+    s0 = numpy.sum(points, axis=0)
+    s0 = s0/numpy.sqrt(numpy.sum(s0**2))
+
+    # project points onto tangent plane at 'centroid'
+    p = numpy.zeros((n,3))
+    for i in range(n):
+        p[i] = s[i]/numpy.dot(s[i], s0)
+
+"""
+def extremal_point(points, toward, wrt):
+    d = toward
+    a = wrt
+    c = numpy.cross(a,d)
+    gstar = None
+    angle = -numpy.pi
+    for p in points:
+        if numpy.dot(p,d) >= 0:
+            anglep = numpy.arccos(numpy.dot(p, c))
+            if anglep > angle:
+                gstar = p
+                angle = anglep
+    return gstar
+    
+    
+def minimum_area_SOBB(g):
+    """
+    see 'Efficient contact determination between solids with boundary representations (B-Rep)', Crozet (2017), p.92
+    """
+    m = len(g)
+    area = 13. # > 4*pi
+    planes = None
+    n = numpy.zeros((2,3))
+    a = numpy.zeros((2,3))
+    gstar = numpy.zeros((4,3))
+    for i in range(m):
+        n[0] = numpy.cross(g[(i+1)%m], g[i])
+        a[0] = g[(i+1)%m] - g[i]
+        gstar[0] = extremal_point(g, toward=n[0], wrt=a[0])
+        gstar[1] = extremal_point(g, toward=-n[0], wrt=-a[0])
+
+        n[1] = numpy.cross(gstar[0], gstar[1])
+        a[1] = gstar[1] - gstar[0]
+        gstar[2] = extremal_point(g, toward=n[1], wrt=a[1])
+        gstar[3] = extremal_point(g, toward=-n[1], wrt=-a[1])
+
+        normals = [
+            numpy.cross( a[0], gstar[0]),
+            numpy.cross(-a[0], gstar[1]),
+            numpy.cross( a[1], gstar[2]),
+            numpy.cross(-a[1], gstar[3]),
+        ]
+        
+        planes_i = [(normals[j], gstar[j]) for j in range(4)]
+        area_i = 0 #???
+        
+        if area_i < area:
+            area = area_i
+            planes = planes_i
+            return planes, gstar
+
+
+
+def complete_orthonormal_matrix(vec, i=0):
+    vec = numpy.asarray(vec)
+    basis = numpy.zeros((3,3))
+    j = (i+1)%3
+    k = (j+1)%3
+    basis[i] = vec/numpy.sqrt(numpy.sum(vec**2))
+    l = numpy.argmin(numpy.absolute(vec))
+    basis[j][l] = 1
+    basis[j] = basis[j] - numpy.dot(basis[j], basis[i])*basis[i]
+    basis[j] = basis[j]/numpy.sqrt(numpy.sum(basis[j]**2))
+    basis[k] = numpy.cross(basis[i], basis[j])
+    return basis
+####################################################################
+"""
+cf. "Computational Geometry, Algorithms, and Applications", M. de Berg et al. (2000)
+"""
+def smallest_enclosing_ball(P, randomize=False):
+    if randomize: P = numpy.random.permutation(P)
+    
+    center = 0.5*(P[0] + P[1])
+    radsqr = 0.25*numpy.sum((P[0] - P[1])**2)
+    for i in range(2,len(P)):
+        if numpy.sum((P[i] - center)**2) > radsqr:
+            center, radsqr = smallest_enclosing_ball_with_point(P[:i], P[i], randomize)
+    return (center, radsqr)
+#########################################
+def smallest_enclosing_ball_with_point(P, q, randomize=False):
+    if randomize: P = numpy.random.permutation(P)
+
+    center = 0.5*(P[0] + q)
+    radsqr = 0.25*numpy.sum((P[0] - q)**2)
+    for i in range(2,len(P)):
+        if numpy.sum((P[i] - center)**2) > radsqr:
+            center, radsqr = smallest_enclosing_ball_with_2_points(P[:i], P[i], q)
+    return (center, radsqr)
+#########################################
+def smallest_enclosing_ball_with_2_points(P, q1, q2):
+    center = 0.5*(q1 + q2)
+    radsqr = 0.25*numpy.sum((q1 - q2)**2)
+    for p in P:
+        if numpy.sum((p - center)**2) > radsqr:
+            center, rad = circumcircle(q1, q2, p)
+            radsqr = rad**2
+    return (center, radsqr)
+####################################################################
