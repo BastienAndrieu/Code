@@ -10,6 +10,14 @@ def diff_angle(a1, a2):
     c2 = cos(a2)
     s2 = sin(a2)
     return atan2(s1*c2 - c1*s2, c1*c2 + s1*s2)
+#############################################################
+def angle_between_vectors_2d(v1, v2):
+    return numpy.arctan2(v1[1]*v2[0] - v1[0]*v2[1], v1[0]*v2[0] + v1[1]*v2[0])
+#############################################################
+def rotate_2d_vector(v, angle):
+    c = numpy.cos(angle)
+    s = numpy.sin(angle)
+    return numpy.array([c*v[0] - s*v[1], s*v[0] + c*v[1]])
 ####################################################################
 def get_bounding_box(points, xymrg=0.):
     xymin = numpy.amin(points, axis=0)
@@ -88,7 +96,6 @@ def rotation_matrix2d(angle):
     c = numpy.cos(angle)
     s = numpy.sin(angle)
     return numpy.array([[c, s], [-s, c]])
-
 ####################################################################
 def minimum_area_OBB(xy):
     """
@@ -96,13 +103,14 @@ def minimum_area_OBB(xy):
     """
     # get convex hull
     hull = quickhull2d(xy)
+    nh = len(hull)
 
     # handle special cases
-    if len(hull) < 1:
+    if nh < 1:
         return (numpy.zeros(2), numpy.zeros(2), numpy.eye(2))
-    elif len(hull) == 1:
+    elif nh == 1:
         return (xy[hull[0]], numpy.zeros(2), numpy.eye(2))
-    elif len(hull) == 2:
+    elif nh == 2:
         center = 0.5*numpy.sum(xy[hull], axis=0)
         vec = xy[hull[1]] - xy[hull[0]]
         ranges = numpy.array([
@@ -112,7 +120,6 @@ def minimum_area_OBB(xy):
         axes = rotation_matrix2d(-numpy.arctan2(vec[1], vec[0]))
         return (center, ranges, axes)
 
-    nh = len(hull)
     xyh = xy[hull]
     area = 1e20
     for i in range(nh):
@@ -218,7 +225,12 @@ def points_right_to_line(xy, part, p1, p2):
             points.append(P)
     return points
 
-##################
+######################################################
+def distance_point_line(p, a, b):
+    xn = b[1] - a[1]
+    yn = a[0] - b[0]
+    return ((p[0] - a[0])*xn + (p[1] - a[1])*yn)/numpy.hypot(xn, yn)
+######################################################
 def circumcircle(A, B, C):
     A = numpy.asarray(A)
     B = numpy.asarray(B)
@@ -244,77 +256,6 @@ def circumcircle(A, B, C):
 def area_LL_rectangle(long0, long1, lat0, lat1):
     return (numpy.sin(lat1) - numpy.sin(lat0))*(long1 - long0)
 ####################################################################
-"""
-def minimum_area_LL_bounding_box(points):
-    # project points onto unit sphere
-    n = len(points)
-    s = numpy.zeros((n,3))
-    for i in range(n):
-        s[i] = points[i]/numpy.sqrt(numpy.sum(points[i]**2))
-    
-    # 'centroid' on sphere
-    s0 = numpy.sum(points, axis=0)
-    s0 = s0/numpy.sqrt(numpy.sum(s0**2))
-
-    # project points onto tangent plane at 'centroid'
-    p = numpy.zeros((n,3))
-    for i in range(n):
-        p[i] = s[i]/numpy.dot(s[i], s0)
-
-"""
-def extremal_point(points, toward, wrt):
-    d = toward
-    a = wrt
-    c = numpy.cross(a,d)
-    gstar = None
-    angle = -numpy.pi
-    for p in points:
-        if numpy.dot(p,d) >= 0:
-            anglep = numpy.arccos(numpy.dot(p, c))
-            if anglep > angle:
-                gstar = p
-                angle = anglep
-    return gstar
-    
-    
-def minimum_area_SOBB(g):
-    """
-    see 'Efficient contact determination between solids with boundary representations (B-Rep)', Crozet (2017), p.92
-    """
-    m = len(g)
-    area = 13. # > 4*pi
-    planes = None
-    n = numpy.zeros((2,3))
-    a = numpy.zeros((2,3))
-    gstar = numpy.zeros((4,3))
-    for i in range(m):
-        n[0] = numpy.cross(g[(i+1)%m], g[i])
-        a[0] = g[(i+1)%m] - g[i]
-        gstar[0] = extremal_point(g, toward=n[0], wrt=a[0])
-        gstar[1] = extremal_point(g, toward=-n[0], wrt=-a[0])
-
-        n[1] = numpy.cross(gstar[0], gstar[1])
-        a[1] = gstar[1] - gstar[0]
-        gstar[2] = extremal_point(g, toward=n[1], wrt=a[1])
-        gstar[3] = extremal_point(g, toward=-n[1], wrt=-a[1])
-
-        normals = [
-            numpy.cross( a[0], gstar[0]),
-            numpy.cross(-a[0], gstar[1]),
-            numpy.cross( a[1], gstar[2]),
-            numpy.cross(-a[1], gstar[3]),
-        ]
-        
-        planes_i = [(normals[j], gstar[j]) for j in range(4)]
-        area_i = 0 #???
-        
-        if area_i < area:
-            area = area_i
-            planes = planes_i
-            return planes, gstar
-
-
-
 def complete_orthonormal_matrix(vec, i=0):
     vec = numpy.asarray(vec)
     basis = numpy.zeros((3,3))
@@ -346,7 +287,7 @@ def smallest_enclosing_ball_with_point(P, q, randomize=False):
 
     center = 0.5*(P[0] + q)
     radsqr = 0.25*numpy.sum((P[0] - q)**2)
-    for i in range(2,len(P)):
+    for i in range(1,len(P)):
         if numpy.sum((P[i] - center)**2) > radsqr:
             center, radsqr = smallest_enclosing_ball_with_2_points(P[:i], P[i], q)
     return (center, radsqr)
@@ -360,3 +301,152 @@ def smallest_enclosing_ball_with_2_points(P, q1, q2):
             radsqr = rad**2
     return (center, radsqr)
 ####################################################################
+
+
+####################################################################
+def minimum_width_OBB(xy):
+    """
+    returns (center, ranges, axes)
+    inspired by https://www.mathworks.com/matlabcentral/fileexchange/7844-geom2d,
+    function 'orientedBox', by David Legland
+    """
+    # get convex hull
+    hull = quickhull2d(xy)
+    nh = len(hull)
+
+    # handle special cases
+    if nh < 1:
+        return (numpy.zeros(2), numpy.zeros(2), numpy.eye(2))
+    elif nh == 1:
+        return (xy[hull[0]], numpy.zeros(2), numpy.eye(2))
+    elif nh == 2:
+        center = 0.5*numpy.sum(xy[hull], axis=0)
+        vec = xy[hull[1]] - xy[hull[0]]
+        ranges = numpy.array([
+            0.5*numpy.hypot(vec[0], vec[1]),
+            0
+            ])
+        axes = rotation_matrix2d(-numpy.arctan2(vec[1], vec[0]))
+        return (center, ranges, axes)
+
+    xyh = xy[hull]
+    minWidth = 1e20
+    rotatedAngle = 0
+    minAngle = 0
+    # indices of vertices in extreme y directions
+    indA = numpy.argmin(xyh[:,1])
+    indB = numpy.argmax(xyh[:,1])
+
+    caliperA = numpy.array([ 1, 0]) # Caliper A points along the positive x-axis
+    caliperB = numpy.array([-1, 0]) # Caliper B points along the negative x-axis
+
+    # Find the direction with minimum width (rotating caliper algorithm)
+    while rotatedAngle < numpy.pi:
+        # compute the direction vectors corresponding to each edge
+        indA2 = (indA + 1)%nh
+        vectorA = xyh[indA2] - xyh[indA]
+    
+        indB2 = (indB + 1)%nh
+        vectorB = xyh[indB2] - xyh[indB]
+
+        # Determine the angle between each caliper and the next adjacent edge in the convex hull
+        angleA = angle_between_vectors_2d(caliperA, vectorA)
+        angleB = angle_between_vectors_2d(caliperB, vectorB)
+        if angleA < 0: angleA += 2*numpy.pi
+        if angleB < 0: angleB += 2*numpy.pi
+
+        # Determine the smallest of these angles
+        angleIncrement = min(angleA, angleB)
+
+        # Rotate the calipers by the smallest angle
+        caliperA = rotate_2d_vector(caliperA, angleIncrement)
+        caliperB = rotate_2d_vector(caliperB, angleIncrement)
+
+        rotatedAngle += angleIncrement
+
+        # compute current width, and update opposite vertex
+        if angleA < angleB:
+            width = abs(distance_point_line(xyh[indB], xyh[indA], xyh[indA2]))
+            indA = (indA + 1)%nh
+        else:
+            width = abs(distance_point_line(xyh[indA], xyh[indB], xyh[indB2]))
+            indB = (indB + 1)%nh
+
+        # update minimum width and corresponding angle if needed
+        if width < minWidth:
+            minWidth = width
+            minAngle = rotatedAngle
+    
+    # OBB axes
+    axes = rotation_matrix2d(minAngle)
+
+    # OBB extents and center
+    xyr = matmul(axes, xyh.T).T
+    mn = numpy.amin(xyr, axis=0)
+    mx = numpy.amax(xyr, axis=0)
+    center = matvecprod(axes, 0.5*(mn + mx))
+    ranges = 0.5*(mx - mn)
+
+    return (center, ranges, axes)
+####################################################################
+
+
+
+
+
+def minimal_OBB(xy, critere='area'):
+    """
+    returns (center, ranges, axes)
+    """
+    # get convex hull
+    hull = quickhull2d(xy)
+    nh = len(hull)
+
+    # handle special cases
+    if nh < 1:
+        return (numpy.zeros(2), numpy.zeros(2), numpy.eye(2))
+    elif nh == 1:
+        return (xy[hull[0]], numpy.zeros(2), numpy.eye(2))
+    elif nh == 2:
+        center = 0.5*numpy.sum(xy[hull], axis=0)
+        vec = xy[hull[1]] - xy[hull[0]]
+        ranges = numpy.array([
+            0.5*numpy.hypot(vec[0], vec[1]),
+            0
+            ])
+        axes = rotation_matrix2d(-numpy.arctan2(vec[1], vec[0]))
+        return (center, ranges, axes)
+
+    xyh = xy[hull]
+    val = 1e20
+    for i in range(nh):
+        # i-th edge of the convex hull
+        vec = xyh[(i+1)%nh] - xyh[i]
+
+        # apply rotation that makes that edge parallel to the x-axis
+        rot = rotation_matrix2d(numpy.arctan2(vec[1], vec[0]))
+        xyrot = matmul(rot, xyh.T).T
+
+        # xy ranges of the rotated convex hull
+        mn = numpy.amin(xyrot, axis=0)
+        mx = numpy.amax(xyrot, axis=0)
+        ranges_tmp = mx - mn
+        if critere == 'area':
+            val_tmp = ranges_tmp[0]*ranges_tmp[1]
+        elif critere == 'width':
+            val_tmp = min(ranges_tmp)
+        
+        if val_tmp < val:
+            val = val_tmp
+            # inverse rotation
+            rot = rot.T
+            center = matvecprod(rot, 0.5*(mn + mx))
+            if ranges_tmp[1] > ranges_tmp[0]:
+                ranges = 0.5*ranges_tmp[[1,0]]
+                axes = numpy.zeros((2,2))
+                axes[:,0] = rot[:,1]
+                axes[:,1] = -rot[:,0]
+            else:
+                ranges = 0.5*ranges_tmp
+                axes = rot
+    return (center, ranges, axes)

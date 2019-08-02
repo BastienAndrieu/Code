@@ -4,7 +4,7 @@ import matplotlib.patches as mpatches
 
 import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python/')
-from lib_compgeom import quickhull2d, minimum_area_OBB
+from lib_compgeom import quickhull2d, minimal_OBB
 from lib_linalg import matmul
 
 ###############################################
@@ -38,8 +38,15 @@ hull = quickhull2d(p)
 
 ###############################################
 # GET MINIMUM-AREA OBB
-center, ranges, axes = minimum_area_OBB(p)
+center, ranges, axes = minimal_OBB(p, 'area')
 ###############################################
+
+###############################################
+# GET MINIMUM-WIDTH OBB
+centerW, rangesW, axesW = minimal_OBB(p, 'width')
+###############################################
+print(ranges, ranges[0]*ranges[1])
+print(rangesW, rangesW[0]*rangesW[1])
 
 ###############################################
 # VISU
@@ -69,10 +76,31 @@ ax.add_patch(mpatches.Polygon(
     alpha=0.2,
     ec='b'
 ))
-
+"""
 cl = ['r','g']
 for i in range(2):
     ax.arrow(center[0], center[1], ranges[i]*axes[0,i], ranges[i]*axes[1,i], length_includes_head=True, color=cl[i])
+"""
+
+box = numpy.zeros((2,4))
+box[:,0] = -rangesW[0]*axesW[:,0] - rangesW[1]*axesW[:,1]
+box[:,1] =  rangesW[0]*axesW[:,0] - rangesW[1]*axesW[:,1]
+box[:,2] =  rangesW[0]*axesW[:,0] + rangesW[1]*axesW[:,1]
+box[:,3] = -rangesW[0]*axesW[:,0] + rangesW[1]*axesW[:,1]
+for i in range(4):
+    box[:,i] = box[:,i] + centerW
+ax.add_patch(mpatches.Polygon(
+    xy=box.T,
+    closed=True,
+    fc='y',
+    alpha=0.2,
+    ec='g'
+))
+"""
+cl = ['r','g']
+for i in range(2):
+    ax.arrow(centerW[0], centerW[1], rangesW[i]*axesW[0,i], rangesW[i]*axesW[1,i], length_includes_head=True, color=cl[i])
+"""
 
 ax.set_aspect('equal')
 plt.show()

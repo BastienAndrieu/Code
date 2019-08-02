@@ -288,3 +288,33 @@ def tensor_product_mesh_vf(x, y, z, periodu=False, periodv=False):
                           ((j+1)%n)*m + (i+1)%m,
                           ((j+1)%n)*m + i])
     return verts, faces
+
+###########################
+def vector_to_mesh(vector, name='vector', width=1e-2, frac_length_head=0.2, frac_width_head=2, n=20):
+    w = Vector(vector)
+    length = w.length
+    w.normalize()
+    u = Vector((0,0,0))
+    i = numpy.argmin(numpy.absolute(vector))
+    u[i] = 1
+    u = (u - u.dot(w)*w).normalized()
+    v = w.cross(u)
+    #
+    t = numpy.linspace(0, 2*numpy.pi, n+1)
+    t = t[:n]
+    #
+    verts = [
+        (width*(1 + frac_width_head*max(0,j-1))*(numpy.cos(t[i])*u + numpy.sin(t[i])*v) + length*(1 - frac_length_head)*min(1,j)*w)
+        for j in range(3)
+        for i in range(n)
+    ]
+    verts.append((length*w))
+    #
+    faces = [
+        (j*n + i, j*n + (i+1)%n, (j+1)*n + (i+1)%n, (j+1)*n + i)
+        for j in range(2)
+        for i in range(n)
+    ]
+    faces.extend([(3*n, 2*n+i, 2*n+(i+1)%n) for i in range(n)])
+    #
+    return pydata_to_mesh(verts, faces, edges=[], name=name)
