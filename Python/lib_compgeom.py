@@ -394,7 +394,7 @@ def minimum_width_OBB(xy):
 
 
 
-def minimal_OBB(xy, critere='area'):
+def minimal_OBB(xy, critere='area', tol=0.0):
     """
     returns (center, ranges, axes)
     """
@@ -419,12 +419,19 @@ def minimal_OBB(xy, critere='area'):
 
     xyh = xy[hull]
     val = 1e20
+    frac = 1.0 + tol
+    rot = numpy.zeros((2,2))
     for i in range(nh):
         # i-th edge of the convex hull
         vec = xyh[(i+1)%nh] - xyh[i]
 
         # apply rotation that makes that edge parallel to the x-axis
-        rot = rotation_matrix2d(numpy.arctan2(vec[1], vec[0]))
+        if True:
+            rot = rotation_matrix2d(numpy.arctan2(vec[1], vec[0]))
+        else:
+            rot[:,0] = vec
+            rot[:,1] = [vec[1], -vec[0]]
+            rot = rot/numpy.hypot(vec[0], vec[1])
         xyrot = matmul(rot, xyh.T).T
 
         # xy ranges of the rotated convex hull
@@ -435,8 +442,9 @@ def minimal_OBB(xy, critere='area'):
             val_tmp = ranges_tmp[0]*ranges_tmp[1]
         elif critere == 'width':
             val_tmp = min(ranges_tmp)
+        print('VAL_TMP =', val_tmp, ', VAL_TMP - VAL =', val_tmp - val)
         
-        if val_tmp < val:
+        if val_tmp < val*frac:
             val = val_tmp
             # inverse rotation
             rot = rot.T
