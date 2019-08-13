@@ -458,3 +458,23 @@ def minimal_OBB(xy, critere='area', tol=0.0):
                 ranges = 0.5*ranges_tmp
                 axes = rot
     return (center, ranges, axes)
+####################################################################
+
+
+
+def covariance_ellipse(xy):
+    xym = numpy.mean(xy, axis=0)
+    # covariance matrix
+    C = numpy.cov(xy[:,0] - xym[0], xy[:,1] - xym[1])
+    # eigenvalues and eigenvectors sorted in descending order
+    eigvals, eigvecs = numpy.linalg.eigh(C)
+    order = eigvals.argsort()[::-1]
+    eigvals, eigvecs = eigvals[order], eigvecs[:,order]
+    return (xym, eigvals, eigvecs)
+
+
+
+
+
+####################################################################
+

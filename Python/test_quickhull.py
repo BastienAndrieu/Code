@@ -48,6 +48,24 @@ centerW, rangesW, axesW = minimal_OBB(p, 'width')
 print(ranges, ranges[0]*ranges[1])
 print(rangesW, rangesW[0]*rangesW[1])
 
+
+###############################################
+# COVARIANCE ELLIPSE
+pm = numpy.mean(p, axis=0)
+# covariance matrix
+C = numpy.cov(p[:,0] - pm[0], p[:,1] - pm[1])
+# eigenvalues and eigenvectors sorted in descending order
+eigvals, eigvecs = numpy.linalg.eigh(C)
+order = eigvals.argsort()[::-1]
+eigvals, eigvecs = eigvals[order], eigvecs[:,order]
+# anti-clockwise angle to rotate our ellipse by 
+vx, vy = eigvecs[:,0][0], eigvecs[:,0][1]
+theta = numpy.arctan2(vy, vx)
+# width and height of ellipse to draw
+nstd = 2
+width, height = 2*nstd*numpy.sqrt(eigvals)
+###############################################
+
 ###############################################
 # VISU
 fig, ax = plt.subplots()
@@ -101,6 +119,21 @@ cl = ['r','g']
 for i in range(2):
     ax.arrow(centerW[0], centerW[1], rangesW[i]*axesW[0,i], rangesW[i]*axesW[1,i], length_includes_head=True, color=cl[i])
 """
+
+
+
+
+ax.add_artist(
+    mpatches.Ellipse(
+        xy=pm,
+        width=width,
+        height=height,
+        angle=numpy.degrees(theta),
+        fill=False
+    )
+)
+
+
 
 ax.set_aspect('equal')
 plt.show()
