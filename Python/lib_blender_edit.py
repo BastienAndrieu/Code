@@ -544,3 +544,59 @@ def apply_coil_pressure2(body,
     bpy.ops.object.mode_set(mode='OBJECT')
     bmsh.free()
     return disp_map
+
+
+###########################
+def unwrap_uv_tensor_product(obj, u, v):
+    uvlayer = obj.data.uv_layers.active
+    if uvlayer is None:
+        bpy.context.scene.objects.active = obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.uv.unwrap(
+            method='ANGLE_BASED',
+            fill_holes=True,
+            correct_aspect=True,
+            use_subsurf_data=False,
+            margin=0.001
+        )
+        bpy.ops.object.mode_set(mode='OBJECT')
+        uvlayer = obj.data.uv_layers.active
+    #
+    m = len(u)
+    n = len(v)
+    for j in range(n-1):
+        for i in range(m-1):
+            k = i + j*(m-1)
+            f = obj.data.polygons[k]
+            for l in [0,3]:
+                uvlayer.data[f.loop_start + l].uv[0] = u[i]
+            for l in [1,2]:
+                uvlayer.data[f.loop_start + l].uv[0] = u[i+1]
+            for l in [0,1]:
+                uvlayer.data[f.loop_start + l].uv[1] = v[j]
+            for l in [2,3]:
+                uvlayer.data[f.loop_start + l].uv[1] = v[j+1]
+    return obj
+
+###########################
+def unwrap_uv_unstructured(obj, uv):
+    uvlayer = obj.data.uv_layers.active
+    if uvlayer is None:
+        bpy.context.scene.objects.active = obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.uv.unwrap(
+            method='ANGLE_BASED',
+            fill_holes=True,
+            correct_aspect=True,
+            use_subsurf_data=False,
+            margin=0.001
+        )
+        bpy.ops.object.mode_set(mode='OBJECT')
+        uvlayer = obj.data.uv_layers.active
+    #
+    for i, f in enumerate(obj.data.polygons):
+        for j in range(f.loop_total):
+            k = f.loop_start + j
+            for l in range(2):
+                uvlayer.data[k].uv[l] = uv[f.vertices[j]][l]
+    return obj
