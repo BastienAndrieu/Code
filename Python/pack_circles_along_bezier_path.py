@@ -55,7 +55,7 @@ def radius_function(x, y):
     """
     return r, dr_dx, dr_dy
     """
-    a = 0.28
+    a = 0.12#0.28
     b = 0.2
     c = 2
     d = 0.1
@@ -66,7 +66,7 @@ def radius_function(x, y):
     return r, dr_dx, dr_dy
 #####################################
 def norm2(u):
-    return sqrt(sum(u**2))
+    return numpy.hypot(u[0], u[1])
 #####################################
 def newton_circle_packing(path, t, oprev, rprev, tol, itmax=100):
     converged = False
@@ -128,7 +128,7 @@ path = [
 ]
 """
 path = []
-fin = open('/d/bandrieu/Téléchargements/bird_bcp.dat')
+fin = open('/d/bandrieu/Téléchargements/teapot_simple_solid_bcp.dat')
 while True:
     line = fin.readline()
     if ("" == line): break # end of file
@@ -139,6 +139,8 @@ while True:
         bp[i] = [float(x) for x in fin.readline().split()]
     path.append(Curve(bp))
 fin.close()
+
+path = path[:-1]
 ########################################################
 
 
@@ -420,7 +422,7 @@ if True:
         )
 
 #ax.plot(centers_xy[:,0], centers_xy[:,1], 'b.')
-if False:
+if True:
     cl = ['r', 'b']
     for i in range(2):
         """

@@ -54,3 +54,23 @@ def eval_bezier_curve(b, t):
             for j in range(dim):
                 p[i,j] = f[j]
     return p
+
+
+def AABB_2d_bezier_curve(b):
+    return numpy.array([numpy.amin(b, axis=0), numpy.amax(b, axis=0)])
+
+
+def OBB_2d_bezier_curve(b):
+    import sys
+    sys.path.append('/d/bandrieu/GitHub/Code/Python/')
+    from lib_compgeom import minimal_OBB
+    return minimal_OBB(b)
+    
+
+def reparameterize_bezier_curve(b, start=0, end=1):
+    if start > 0:
+        f, bl, b = de_casteljau(b, start)
+        end = (end - start)/(1 - start)
+    if end < 1:
+        f, b, br = de_casteljau(b, end)
+    return b
