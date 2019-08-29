@@ -57,7 +57,10 @@ def eval_bezier_curve(b, t):
 
 
 def AABB_2d_bezier_curve(b):
-    return numpy.array([numpy.amin(b, axis=0), numpy.amax(b, axis=0)])
+    if b.shape[0] == 4:
+        return cubic_bezier_extrema(b)
+    else:
+        return numpy.array([numpy.amin(b, axis=0), numpy.amax(b, axis=0)])
 
 
 def OBB_2d_bezier_curve(b):
@@ -65,7 +68,7 @@ def OBB_2d_bezier_curve(b):
     sys.path.append('/d/bandrieu/GitHub/Code/Python/')
     from lib_compgeom import minimal_OBB
     return minimal_OBB(b)
-    
+
 
 def reparameterize_bezier_curve(b, start=0, end=1):
     if start > 0:
@@ -74,3 +77,31 @@ def reparameterize_bezier_curve(b, start=0, end=1):
     if end < 1:
         f, b, br = de_casteljau(b, end)
     return b
+
+def cubic_bezier_extrema(b):
+    d = diff(b)
+    aabb = numpy.vstack([numpy.amin(b[[0,-1]], axis=0), numpy.amax(b[[0,-1]], axis=0)])
+    for ivar in range(2):
+        A = d[2][ivar] - 2*d[1][ivar] + d[0][ivar]
+        if abs(A) < 1e-15:
+            denom = d[0][ivar] - d[1][ivar]
+            if abs(denom) < 1e-15:
+                t = []
+            else:
+                t = [0.5*d[0][ivar]/denom]
+        else:
+            B = d[1][ivar] - d[0][ivar]
+            C = d[0][ivar]
+            delta = B**2 - A*C
+            if delta < 0:
+                t = []
+            else:
+                sqrtdelta = numpy.sqrt(delta)
+                t = [(sign*sqrtdelta - B)/A for sign in [-1,1]]
+        #
+        for u in t:
+            if u >= 0 and u <= 1:
+                xy = eval_bezier_curve(b, u)
+                aabb[0] = numpy.minimum(aabb[0], xy)
+                aabb[1] = numpy.maximum(aabb[1], xy)
+    return aabb
