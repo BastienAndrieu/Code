@@ -111,6 +111,64 @@ def B2Cmatrix( N ):
                 A[j,k] += np.power(-1.0,j-i)*nchoosek(j,i)*float(factorial2(2*(k+i)-1)*factorial2(2*(n+j-k-i)-1))/float(factorial2(2*i-1)*factorial2(2*(j-i)-1))
             A[j,k] *= float((2-dj0)*factorial2(2*j-1)*nchoosek(n,k))/float(2**(n+j)*factorial(n+j))
     return A
+
+def C2Bmatrix_new(N):
+    A = np.zeros((N,N))
+    degr = N-1
+    m = int(degr/2)
+    A[0:m+1,0] = 1
+    A[0,1::2] = -1
+    A[0,2::2] = 1
+    
+    A[1:m+1,1:] = 0
+    for k in range(1,N):
+        fnumerator = factln(2*k) + factln(degr-k)
+        for j in range(1,m+1):
+            imin = max(0,j + k - degr)
+            s = (-1)**(k - imin)
+            for i in range(imin,min(j,k)+1):
+                A[j,k] += s*np.exp(
+                    fnumerator - (factln(2*(k-i)) + factln(2*i) + factln(degr-k-j+i) + factln(j-i))
+                )
+                s *= -1
+    #
+    fdegr = factln(degr)
+    for j in range(1,m+1):
+        A[j,1:] = A[j,1:]/np.exp(fdegr - factln(degr-j) - factln(j))
+    #
+    p = m
+    if degr%2 != 0: p += 1
+    #
+    A[degr:p-1:-1,1::2] = -A[:m+1,1::2]
+    A[degr:p-1:-1,0::2] = A[:m+1,0::2]
+    return A
+
+
+def factln(n):
+    if n < 0: return None
+    return gammaln(n+1)
+
+def gammaln(xx):
+    cof = np.array([
+        76.18009172947146,
+        -86.50532032941677,
+        24.01409824083091,
+        -1.231739572450155,
+        .1208650973866179e-2,
+        -.5395239384953e-5
+        ])
+    stp = 2.5066282746310005
+    
+    x = xx
+    y = x
+    tmp = x + 5.5
+    tmp = (x + 0.5)*np.log(tmp) - tmp
+    ser = 1.000000000190015
+    for j in range(6):
+        y += 1
+        ser = ser + cof[j]/y
+    return tmp + np.log(stp*ser/x)
+    
 ##########################################
 def chebfit(x, y, M):
     n = len(x)
