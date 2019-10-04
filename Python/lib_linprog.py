@@ -5,7 +5,6 @@ BIGlp = 1.e6
 def lp_solve(x, A, c):
     stat = 0
     dim = len(c)
-    print 'dim = %d' % dim
     #
     if dim == 1:
         return lp_solve_1d(x[0], A, c[0])
@@ -40,7 +39,9 @@ def lp_solve(x, A, c):
         x[j] = xj
         x[l] = -(A[i,dim] + A[i,j].dot(xj))*inv_Ail
     return stat, x
-        
+
+
+
 def lp_solve_1d(x, A, c):
     stat = 0
     L = -BIGlp
