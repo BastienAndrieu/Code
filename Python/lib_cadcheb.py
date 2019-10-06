@@ -1,10 +1,11 @@
-ROOT = '/d/bandrieu/'#'/home/bastien/'
+ROOT = '/home/bastien/'#'/d/bandrieu/'#
 
 import numpy
+from numpy.polynomial.chebyshev import chebval, chebval2d
+
 import sys
 sys.path.append(ROOT + 'GitHub/Code/Python/')
 import lib_chebyshev as lch
-
 
 class BREP_t:
     def __init__(self, patches=None):
@@ -13,6 +14,48 @@ class BREP_t:
         else:
             self.patches = patches
         return
+    #
+    def make_G1_adjacency_matrix(self):
+        np = len(self.patches)
+        self.G1adjmat = numpy.zeros((np,np), dtype=bool)
+        for i in range(np):
+            for j in self.patches[i].adj:
+                self.G1adjmat[i][j] = True
+                self.G1adjmat[j][i] = True
+                if i not in self.patches[j].adj: self.patches[j].adj.append(i)
+        return
+    #
+    def trace_tangential_intersection_curves(self, iplanes, hmin, hmax, tolchord):
+        np = len(self.patches)
+        self.curves = []
+        for i, Pi in enumerate(self.patches):
+            for j in Pi.adj:
+                if i < j:
+                    Pj = self.patches[j]
+                    if i in iplanes:
+                        self.curves.append(
+                            trace_plane_intersection_curve(
+                                [Pi, Pj],
+                                hmin, hmax, tolchord
+                            )
+                        )
+                    elif j in iplanes:
+                        self.curves.append(
+                            trace_plane_intersection_curve(
+                                [Pj, Pi],
+                                hmin, hmax, tolchord
+                            )
+                        )
+                    else:
+                        self.curves.append(
+                            trace_intersection_curve(
+                                [Pi, Pj],
+                                hmin, hmax, tolchord
+                            )
+                        )
+        return 
+
+        
 
 class Patch_t:
     def __init__(self, xyz, adj=None, tag=None):
@@ -26,6 +69,31 @@ class Patch_t:
         self.tag = tag
         return
 
+    def get_corners(self):
+        return [
+            self.xyz[:,0,0],
+            self.xyz[:,-1,0],
+            self.xyz[:,-1,-1],
+            self.xyz[:,0,-1]
+        ]
+
+    def get_border(self, border):
+        if border == 0:
+            return self.xyz[:,:,0]
+        elif border == 1:
+            return self.xyz[:,-1,:]
+        elif border == 2:
+            return self.xyz[:,::-1,-1]
+        else:
+            return self.xyz[:,0,::-1]
+
+
+class Curve_t:
+    def __init__(self, patches, xyz, uv):
+        self.patches = patches
+        self.xyz = xyz
+        self.uv = uv
+        return
 
 
 
@@ -37,11 +105,21 @@ class Patch_t:
 
 
 
-
-
-
-
+# CONSTANTS #################
 Id3 = numpy.eye(3)
+
+ic2ivar = [1,0,1,0]
+ic2ival = [2,1,1,2]
+
+EPS = 1e-9
+EPSsqr = EPS**2
+
+EPSuv = 1e-12
+EPSxyz = 1e-9
+#############################
+
+
+
 
 def rotation(x, y, z, R):
     xr = R[0][0]*x + R[0][1]*y + R[0][2]*z
@@ -161,3 +239,179 @@ def symmetry(xyz, iaxe):
     xyz_s = xyz[:,::-1].copy()
     xyz_s[iaxe] = -xyz_s[iaxe]
     return xyz_s
+
+
+def cht_xyz(xyz):
+    c = numpy.zeros((xyz.shape[1], xyz.shape[2], 3))
+    for i in range(3):
+        c[:,:,i] = lch.fcht(lch.fcht(xyz[i]).T).T
+    return c
+
+
+
+#def trace_tangential_intersection_curve(self, iplanes, hmin, hmax, tolchord)
+def trace_intersection_curve(patches, hmin, hmax, tolchord):
+    xc = [Pa.get_corners() for Pa in patches]
+    for jc in range(4):
+        for ic in range(4):
+            v1 = xc[0][ic] - xc[1][(jc+1)%4]
+            v2 = xc[0][(ic+1)%4] - xc[1][jc]
+            if max(v1.dot(v1), v2.dot(v2)) < EPS**2:
+                xyz = patches[1].get_border(jc)
+                c = lch.fcht(xyz).T
+                xyz, t = discretize_curve(c, hmin, hmax, tolchord, ta=1, tb=-1)
+                uv = numpy.zeros((2,2,len(t)))
+                jvar = ic2ivar[jc]
+                jval = ic2ival[jc]
+                uv[1,jvar,:] = (-1)**jval
+                uv[1,(jvar+1)%2] = numpy.sign(1.5 - jc)*t
+                ivar = ic2ivar[ic]
+                ival = ic2ival[ic]
+                uv[0,ivar,:] = (-1)**ival
+                uv[0,(ivar+1)%2] = -numpy.sign(1.5 - ic)*t
+                return Curve_t(patches=patches, xyz=xyz, uv=uv)
+    return None
+    
+
+def trace_plane_intersection_curve(patches, hmin, hmax, tolchord):
+    ori = patches[0].xyz[:,-1,-1]
+    nor = numpy.cross(patches[0].xyz[:,0,-1] - ori, patches[0].xyz[:,-1,0] - ori)
+    # find correct border 
+    fc = numpy.array([nor.dot(xc - ori) for xc in patches[1].get_corners()])
+    for ic in range(4):
+        if numpy.amax(numpy.absolute(fc[[ic, (ic+1)%4]])) < EPS:
+            xyz = patches[1].get_border(ic)
+            c = lch.fcht(xyz).T
+            xyz, t = discretize_curve(c, hmin, hmax, tolchord, ta=1, tb=-1)
+            ivar = ic2ivar[ic]
+            ival = ic2ival[ic]
+            uv = numpy.zeros((2,2,len(t)))
+            uv[1,ivar,:] = (-1)**ival
+            uv[1,(ivar+1)%2] = numpy.sign(1.5 - ic)*t
+            break
+    # project onto other plane surface
+    for ip in range(len(t)):
+        c = cht_xyz(patches[0].xyz)
+        cu, cv = lch.diff2(c)
+        u, v = uv[0,:,ip]
+        # Newton
+        for it in range(20):
+            s = chebval2d(u, v, c)
+            r = xyz[:,ip] - s
+            su = chebval2d(u, v, cu)
+            sv = chebval2d(u, v, cv)
+            E = su.dot(su)
+            F = su.dot(sv)
+            G = sv.dot(sv)
+            invdet = 1/(E*G - F**2)
+            rsu = r.dot(su)
+            rsv = r.dot(sv)
+            du = (rsu*G - rsv*F)*invdet
+            dv = (rsv*E - rsu*F)*invdet
+            u += du
+            v += dv
+            if du**2 + dv**2 < EPSuv**2 and r.dot(r) < EPSxyz**2:
+                uv[0,0,ip] = u
+                uv[0,1,ip] = v
+                break
+    #
+    return Curve_t(patches=patches, xyz=xyz, uv=uv)
+
+def squared_curvature_curve(xt, yt, zt, xtt, ytt, ztt):
+    u = yt*ztt - zt*ytt
+    v = zt*xtt - xt*ztt
+    w = xt*ytt - yt*xtt
+    return (u**2 + v**2 + w**2)/numpy.maximum(EPSsqr, (xt**2 + yt**2 + zt**2)**3)
+
+
+def discretize_curve(c, hmin, hmax, tolchord, ta=-1, tb=1, n0=20):
+    FRACsqr = 4*tolchord*(2 - tolchord)
+    c_t = lch.diff(c)
+    c_tt = lch.diff(c_t)
+    tbounds = [min(ta, tb), max(ta, tb)]
+    sdtab = numpy.sign(tb - ta)
+    #
+    t = numpy.linspace(ta, tb, n0)
+    xyz = chebval(t, c)
+    xyz_t = chebval(t, c_t)
+    xyz_tt = chebval(t, c_tt)
+    curvaturesqr = squared_curvature_curve(
+        xyz_t[0], xyz_t[1], xyz_t[2],
+        xyz_tt[0], xyz_tt[1], xyz_tt[2],
+    )
+
+    hminsqr = hmin**2
+    hmaxsqr = hmax**2
+    hsqr = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvaturesqr))
+    #
+    maxit = 100*n0
+    for it in range(maxit):
+        changes = False
+        for i in range(len(t)-1):
+            ei = xyz[:,i+1] - xyz[:,i]
+            lisqr = ei.dot(ei)
+            if lisqr > 2*max(hsqr[i], hsqr[i+1]):
+                # split
+                hi = numpy.sqrt(hsqr[i])
+                hj = numpy.sqrt(hsqr[i+1])
+                tm = (hj*t[i] + hi*t[i+1])/(hi + hj)
+                xyzm = chebval(tm, c)
+                xyzm_t = chebval(tm, c_t)
+                xyzm_tt = chebval(tm, c_tt)
+                curvaturemsqr = squared_curvature_curve(
+                    xyzm_t[0], xyzm_t[1], xyzm_t[2],
+                    xyzm_tt[0], xyzm_tt[1], xyzm_tt[2],
+                )
+                hmsqr = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvaturemsqr))
+                t = numpy.insert(t, i+1, tm)
+                xyz = numpy.insert(xyz, i+1, xyzm, axis=1)
+                hsqr = numpy.insert(hsqr, i+1, hmsqr)
+                changes = True
+                break
+            elif lisqr < 0.5*min(hsqr[i], hsqr[i+1]):
+                if xyz.shape[1] <= 2: break
+                # collapse
+                if i == 0:
+                    # remove i+1
+                    t = numpy.delete(t, i+1)
+                    xyz = numpy.delete(xyz, i+1, axis=1)
+                    hsqr = numpy.delete(hsqr, i+1)
+                elif i == xyz.shape[1]-2:
+                    # remove i
+                    t = numpy.delete(t, i)
+                    xyz = numpy.delete(xyz, i, axis=1)
+                    hsqr = numpy.delete(hsqr, i)
+                else:
+                    # relocate i+1
+                    hi = numpy.sqrt(hsqr[i])
+                    hj = numpy.sqrt(hsqr[i+1])
+                    t[i+1] = (hj*t[i] + hi*t[i+1])/(hi + hj)
+                    xyz[:,i+1] = chebval(t[i+1], c)
+                    xyzm_t = chebval(t[i+1], c_t)
+                    xyzm_tt = chebval(t[i+1], c_tt)
+                    curvaturemsqr = squared_curvature_curve(
+                        xyzm_t[0], xyzm_t[1], xyzm_t[2],
+                        xyzm_tt[0], xyzm_tt[1], xyzm_tt[2],
+                    )
+                    hsqr[i+1] = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvaturemsqr))
+                    # remove i
+                    t = numpy.delete(t, i)
+                    xyz = numpy.delete(xyz, i, axis=1)
+                    hsqr = numpy.delete(hsqr, i)
+                changes = True
+                break
+            else: continue
+        if not changes:break
+    #
+    """
+    for i in range(len(t)):
+        if i == 0:
+            print('%s' % numpy.sqrt(hsqr[i]))
+        else:
+            print('%s\t%s' % (
+                numpy.sqrt(hsqr[i]),
+                numpy.sqrt(numpy.dot(xyz[:,i] - xyz[:,i-1], xyz[:,i] - xyz[:,i-1]))
+            ))
+    """
+    #
+    return xyz, t
