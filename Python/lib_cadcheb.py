@@ -1,4 +1,4 @@
-ROOT = '/home/bastien/'#'/d/bandrieu/'#
+ROOT = '/d/bandrieu/'#'/home/bastien/'#
 
 import numpy
 from numpy.polynomial.chebyshev import chebval, chebval2d

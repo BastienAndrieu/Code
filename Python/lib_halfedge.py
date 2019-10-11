@@ -1,3 +1,4 @@
+import numpy
 ############################################################
 class Vertex:
     def __init__(self, co, edge, index):
@@ -30,6 +31,53 @@ class SurfaceMesh:
         self.verts = verts
         self.f2v = f2v
         self.twin = twin
+    #
+    def get_prev(self, ihedg):
+        n = len(self.f2v[ihedg[0]])
+        return [ihedg[0], (ihedg[1]+n-1)%n]
+    #
+    def get_next(self, ihedg):
+        n = len(self.f2v[ihedg[0]])
+        return [ihedg[0], (ihedg[1]+1)%n]
+    #
+    def get_face(self, ihedg):
+        return ihedg[0]
+    #
+    def get_twin(self, ihedg):
+        return self.twin[ihedg[0]][ihedg[1]]
+    #
+    def get_orig(self, ihedg):
+        return self.f2v[ihedg[0]][ihedg[1]]
+    #
+    def get_dest(self, ihedg):
+        return self.get_orig(self.get_next(ihedg))
+    #
+    def is_boundary_edge(self, ihedg):
+        return self.get_twin(ihedg) == None
+    #
+    def get_boundaries(self):
+        boundaries = []
+        visited = [False for startv in self.verts]
+        for startv in self.verts:
+            if visited[startv.index]: continue
+            visited[startv.index] = True
+            if not self.is_boundary_edge(startv.edge): continue
+            edges = [startv.edge]
+            while True:
+                v = self.get_dest(edges[-1])
+                visited[v] = True
+                e = self.verts[v].edge
+                if e == edges[0]: break
+                edges.append(e)
+            boundaries.append(edges)
+        return boundaries
+    #
+    def plot_as_triangulation(self, ax, linewidth=1, color='b'):
+        import matplotlib.pyplot as plt
+        x = [v.co[0] for v in self.verts]
+        y = [v.co[1] for v in self.verts]
+        tri = [f[0:3] for f in self.f2v]
+        return plt.triplot(x, y, tri, lw=linewidth, color=color)
 ############################################################
 
 def hash_integer_pair(p, q):
@@ -210,8 +258,10 @@ def get_v2v(mesh, v):
 def plot_mesh(mesh,
               ax,
               faces=True,
+              edges=True,
               halfedges=True,
               vertices=True,
+              boundaries=True,
               v2h=True,
               v2f=False,
               count_from_1=True):
@@ -263,14 +313,24 @@ def plot_mesh(mesh,
                     x = [fctr[i,0], xym[0]]
                     y = [fctr[i,1], xym[1]]
                     ax.plot(x, y, 'b-', lw=0.5)
-                ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
+                if edges: ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
             else:
                 ej = get_twin([i,j], mesh)
-                if v1.index < v2.index:
-                    ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
+                if edges:
+                    if v1.index < v2.index:
+                        ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
                 if halfedges:
                     ax.plot([fctr[i,0], fctr[ej[0],0]], [fctr[i,1], fctr[ej[0],1]],
                             'g-', lw=0.5)
+    # boundaries
+    if boundaries:
+        for loop in get_boundary_loops(mesh):
+            lenloop = len(loop)
+            for i in range(lenloop):
+                j = (i+1)%lenloop
+                x = [mesh.verts[k].co[0] for k in [i,j]]
+                y = [mesh.verts[k].co[1] for k in [i,j]]
+                ax.plot(x, y, 'b-', lw=1.0)
 
     # vertex to incident halfedge
     if v2h:

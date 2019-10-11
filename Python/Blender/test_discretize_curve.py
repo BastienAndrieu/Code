@@ -1,4 +1,4 @@
-ROOT = '/home/bastien/'#'/d/bandrieu/'#
+ROOT = '/d/bandrieu/'#'/home/bastien/'#
 
 import bpy
 import numpy
