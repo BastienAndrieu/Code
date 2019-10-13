@@ -1,8 +1,15 @@
+# -*-coding:Latin-1 -*
+ROOT = '/home/bastien/'#'/d/bandrieu'
+
 import numpy
+import vtk
+from vtk.util.numpy_support import vtk_to_numpy
+import meshio
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 import sys
-sys.path.append('/d/bandrieu/GitHub/Code/Python')
+sys.path.append(ROOT+'GitHub/Code/Python')
 import lib_halfedge as lhe
 
 
@@ -12,24 +19,17 @@ def distance_from_segment(segment, xy):
     tsqr = t[0]*t[0] + t[1]*t[1]
     v = [xy[i] - segment[0][i] for i in range(2)]
     v_dot_t = v[0]*t[0] + v[1]*t[1]
-    #proj = []
-    #print 'v_dot_t = ', v_dot_t, ', t_dot_t =', tsqr
     if v_dot_t < 0:
-        #print 'v_dot_t < 0'
         proj = segment[0]
     elif v_dot_t > tsqr:
-        #print 'v_dot_t > t_dot_t'
         proj = segment[1]
     else:
-        #print '0 < v_dot_t < t_dot_t'
         v_dot_t = v_dot_t/tsqr # 0 < * < 1
         proj = [segment[0][i] + v_dot_t*t[i] for i in range(2)]
-        #dist = v[0]*v[0] + v[1]*v[1] - v_dot_t*v_dot_t
-    #else:
+    #
     dist = 0
     for i in range(2):
         dist += (xy[i] - proj[i])*(xy[i] - proj[i])
-    #print 'xy = ', xy, ', segment = ', [[x for x in p] for p in segment], ', proj =', proj, ', dist = ', numpy.sqrt(dist)
     return dist, proj
     
 
@@ -45,21 +45,100 @@ def distance_from_segment(segment, xy):
 
 # READ INPUT DATA
 print 'read data...'
-pth = '/d/bandrieu/GitHub/FFTsurf/test/demo_EoS_brep/'
-iface = 2
-strf = format(iface,'03')
-tri = numpy.loadtxt(pth + 'brepmesh/tri_' + strf + '.dat', dtype=int)-1
-xyz = numpy.loadtxt(pth + 'brepmesh/xyz_' + strf + '.dat', dtype=float)
-xyz = xyz[:,[1,2,0]]
+if True:
+    """
+    pth = ROOT+'GitHub/FFTsurf/test/demo_EoS_brep/'
+    ifaces = [2]#,7]
+    xy = numpy.empty((0,2))
+    f2v = []
+    for iface in ifaces:
+        strf = format(iface,'03')
+        tri = numpy.loadtxt(pth + 'brepmesh/tri_' + strf + '.dat', dtype=int)-1 + len(xy)
+        xyz = numpy.loadtxt(pth + 'brepmesh/xyz_' + strf + '.dat', dtype=float)
+        for t in tri:
+            f2v.append([int(v) for v in t])
+        xy = numpy.vstack([xy, xyz[:,[1,2]]])
+    """
+    pth = ROOT+'Téléchargements/ne_50m_admin/'
+    land = 'bolivia_mali_iceland'
+    xy = numpy.loadtxt(pth+land+'_xy.dat')
+    f2v = numpy.loadtxt(pth+land+'_tri.dat', dtype=int)
+    
+else:
+    pth = ROOT+'Téléchargements/mesquite-2.3.0/meshFiles/2D/vtk/'
+    filename = pth+'tris/untangled/tri_20258.vtk'#mixed/untangled/overt_hyb_2.vtk'#N-Polygonal/poly3.vtk'#tris/untangled/bad_circle_tri.vtk'#
+    if True:
+        reader = vtk.vtkUnstructuredGridReader()#vtkPolyDataReader()#
+        reader.SetFileName(filename)
+        reader.Update()
+        data = reader.GetOutput()
+        xyz = vtk_to_numpy(data.GetPoints().GetData())
+        xy = xyz[:,0:2]
+        f2v = []
+        used = numpy.zeros(len(xy), dtype=bool)
+        for i in range(data.GetNumberOfCells()):
+            cell = data.GetCell(i)
+            f = []
+            for j in range(cell.GetNumberOfPoints()):
+                v = int(cell.GetPointId(j))
+                used[v] = True
+                f.append(v)
+            f2v.append(f)
+        # remove unused vertices
+        if not all(used):
+            nv = 0
+            v2v_renum = -numpy.ones(len(xy), dtype=int)
+            for i in range(len(xy)):
+                if used[i]:
+                    v2v_renum[i] = nv
+                    nv += 1
+            for i in range(len(f2v)):
+                for j in range(len(f2v[i])):
+                    f2v[i][j] = int(v2v_renum[f2v[i][j]])
+            xy = [xy[i] for i in range(len(xy)) if used[i]]
+    else:
+        m = meshio.read(filename)
+        xy = numpy.array([p[0:2] for p in m.points])
+        f2v = []
+        for key, values in m.cells.iteritems():
+            f2v.extend(values)
 print '   ok.'
+
+
+
+if False:
+    fig, ax = plt.subplots()
+    for f in f2v:
+        v = f[:] + [f[0]]
+        x = [xy[i][0] for i in v]
+        y = [xy[i][1] for i in v]
+        ax.plot(x, y, 'k-')
+    ax.set_aspect('equal')
+    plt.show()
 
 
 
 # MAKE HALFEDGE DS
 print 'make halfedge DS...'
-mesh = lhe.pydata_to_SurfaceMesh(xyz[:,0:2], tri)
+mesh = lhe.pydata_to_SurfaceMesh(xy, f2v)
 print '   ok.'
 
+if False:
+    print [v.edge for v in mesh.verts]
+    fig, ax = plt.subplots()
+    lhe.plot_mesh(mesh,
+                  ax,
+                  faces=False,
+                  edges=True,
+                  halfedges=False,
+                  vertices=False,
+                  boundaries=False,
+                  v2h=True,
+                  v2f=False,
+                  count_from_1=False)
+    ax.set_aspect('equal')
+    plt.show()
+    
 
 
 # GET CELL CENTERS
@@ -125,6 +204,7 @@ print '   ok.'
 
 
 # INITIALIZE QUEUE
+print 'initialize queue...'
 from collections import deque
 #in_queue = [0 for c in mesh.f2v] # -1: boundary cell, 0: outside the queue, 1: inside the queue
 in_queue = numpy.zeros(n_cells, dtype=int)
@@ -141,7 +221,9 @@ for c in bound_cells:
             if in_queue[j] == 0:
                 in_queue[j] = 1
                 queue.append(j)
+print '   ok.'
 
+print 'compute interior distances...'
 # PROCESS QUEUE
 while len(queue) > 0:
     cur_cell = queue.popleft()
@@ -171,7 +253,8 @@ while len(queue) > 0:
             if in_queue[icell1] == 0:
                 in_queue[icell1] = 1
                 queue.append(icell1)
-                
+print '   ok.'
+    
 
 
 
@@ -182,23 +265,71 @@ while len(queue) > 0:
 
 # VISU
 print 'plot...'
+
+all_tri = all([len(f) == 3 for f in mesh.f2v])
+
 fig, ax = plt.subplots()
-mesh.plot_as_triangulation(ax, color='k')
+"""
+if all_tri:
+    mesh.plot_as_triangulation(ax, color='k')
+else:
+    lhe.plot_mesh(mesh,
+                  ax,
+                  faces=False,
+                  edges=True,
+                  halfedges=False,
+                  vertices=False,
+                  boundaries=False,
+                  v2h=False,
+                  v2f=False,
+                  count_from_1=False)
+"""
 #
-if False:
+x = [v.co[0] for v in mesh.verts]
+y = [v.co[1] for v in mesh.verts]
+if not all_tri:
     #ax.plot(cell_centers[bound_cells,0], cell_centers[bound_cells,1], 'r.')
-    for c in range(n_cells):#bound_cells:
+    """
+    for c in bound_cells:#range(n_cells):#
         if distance[c] > 100: continue
         ax.plot(
             [cell_centers[c][0], closest_point[c][0]],
             [cell_centers[c][1], closest_point[c][1]],
             'r-'
         )
+        ax.add_artist(
+            plt.Circle(cell_centers[c], numpy.sqrt(distance[c]), color='r')
+        )
+    """
+    tri = []
+    d = []
+    for i, f in enumerate(mesh.f2v):
+        n = len(f)
+        if n == 3:
+            tri.append(f)
+            d.append(distance[i])
+        else:
+            for j in range(1,n-1):
+                tri.append([f[0], f[j], f[j+1]])
+                d.append(distance[i])
 else:
-    x = [v.co[0] for v in mesh.verts]
-    y = [v.co[1] for v in mesh.verts]
     tri = [f[0:3] for f in mesh.f2v]
-    ax.tripcolor(x, y, tri, numpy.sqrt(distance))
+    d = distance
+ax.tripcolor(x, y, tri, numpy.sqrt(d), cmap=cm.YlOrRd)
+#
+if all_tri:
+    mesh.plot_as_triangulation(ax, color='k')
+else:
+    lhe.plot_mesh(mesh,
+                  ax,
+                  faces=False,
+                  edges=True,
+                  halfedges=False,
+                  vertices=False,
+                  boundaries=False,
+                  v2h=False,
+                  v2f=False,
+                  count_from_1=False)
 #
 print '   ok.'
 ax.set_aspect('equal')

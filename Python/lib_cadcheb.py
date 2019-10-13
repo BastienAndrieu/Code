@@ -1,4 +1,6 @@
-ROOT = '/d/bandrieu/'#'/home/bastien/'#
+ROOT = '/home/bastien/'#'/d/bandrieu/'#
+
+NORMAL_CURVATURE_ONLY = False#True#
 
 import numpy
 from numpy.polynomial.chebyshev import chebval, chebval2d
@@ -70,6 +72,12 @@ class Patch_t:
         return
 
     def get_corners(self):
+        """return [
+            self.xyz[:,-1,-1],
+            self.xyz[:,0,-1],
+            self.xyz[:,0,0],
+            self.xyz[:,-1,0]
+        ]"""
         return [
             self.xyz[:,0,0],
             self.xyz[:,-1,0],
@@ -97,14 +105,6 @@ class Curve_t:
 
 
 
-
-
-
-
-
-
-
-
 # CONSTANTS #################
 Id3 = numpy.eye(3)
 
@@ -114,12 +114,9 @@ ic2ival = [2,1,1,2]
 EPS = 1e-9
 EPSsqr = EPS**2
 
-EPSuv = 1e-12
+EPSuv = 1e-13
 EPSxyz = 1e-9
 #############################
-
-
-
 
 def rotation(x, y, z, R):
     xr = R[0][0]*x + R[0][1]*y + R[0][2]*z
@@ -241,12 +238,44 @@ def symmetry(xyz, iaxe):
     return xyz_s
 
 
+
+def border_as_uv_poly(border):
+    if border == 2:
+        c = numpy.vstack([(0, -1), (1, 0)])
+    elif border == 3:
+        c = numpy.vstack([(1, 0), (0, 1)])
+    elif border == 0:
+        c = numpy.vstack([(0, 1), (-1, 0)])
+    else:
+        c = numpy.vstack([(-1, 0), (0, -1)])
+    return c
+
+
+def corner_uv(corner):
+    if corner == 2:
+        uv = (-1,-1)
+    elif corner == 3:
+        uv = ( 1,-1)
+    elif corner == 0:
+        uv = ( 1, 1)
+    else:
+        uv = (-1, 1)
+    return numpy.array(uv)
+
 def cht_xyz(xyz):
     c = numpy.zeros((xyz.shape[1], xyz.shape[2], 3))
     for i in range(3):
         c[:,:,i] = lch.fcht(lch.fcht(xyz[i]).T).T
     return c
 
+
+"""
+uvgrid = rectangle_cgl((-1,-1,0), 2, 2, Id3, 2, 2)
+uvgrid = uvgrid[0:2]
+uvborders = [uvgrid[:,:,0], uvgrid[:,-1,:], uvgrid[:,::-1,-1], uvgrid[:,0,::-1]]
+uvborders_c = [lch.fcht(uv).T for uv in uvborders]
+"""
+uvborders_c = [border_as_uv_poly(border) for border in range(4)]
 
 
 #def trace_tangential_intersection_curve(self, iplanes, hmin, hmax, tolchord)
@@ -257,45 +286,78 @@ def trace_intersection_curve(patches, hmin, hmax, tolchord):
             v1 = xc[0][ic] - xc[1][(jc+1)%4]
             v2 = xc[0][(ic+1)%4] - xc[1][jc]
             if max(v1.dot(v1), v2.dot(v2)) < EPS**2:
-                xyz = patches[1].get_border(jc)
-                c = lch.fcht(xyz).T
-                xyz, t = discretize_curve(c, hmin, hmax, tolchord, ta=1, tb=-1)
-                uv = numpy.zeros((2,2,len(t)))
                 jvar = ic2ivar[jc]
                 jval = ic2ival[jc]
-                uv[1,jvar,:] = (-1)**jval
-                uv[1,(jvar+1)%2] = numpy.sign(1.5 - jc)*t
                 ivar = ic2ivar[ic]
                 ival = ic2ival[ic]
-                uv[0,ivar,:] = (-1)**ival
-                uv[0,(ivar+1)%2] = -numpy.sign(1.5 - ic)*t
+                if NORMAL_CURVATURE_ONLY:
+                    xyz, uvtmp, t = discretize_curve_on_surface(
+                        uvborders_c[jc],
+                        cht_xyz(patches[1].xyz),
+                        hmin, hmax, tolchord,
+                        ta=-1, tb=1)
+                    uv = numpy.zeros((2,2,len(t)))
+                    uv[1] = uvtmp
+                    uv[0,ivar,:] = (-1)**ival
+                    uv[0,(ivar+1)%2] = numpy.sign(1.5 - ic)*t
+                else:
+                    xyz = patches[1].get_border(jc)
+                    c = lch.fcht(xyz).T
+                    xyz, t = discretize_curve(c, hmin, hmax, tolchord, ta=1, tb=-1)
+                    uv = numpy.zeros((2,2,len(t)))
+                    uv[1,jvar,:] = (-1)**jval
+                    uv[1,(jvar+1)%2] = numpy.sign(1.5 - jc)*t
+                    uv[0,(ivar+1)%2] = -numpy.sign(1.5 - ic)*t
+                    uv[0,ivar,:] = (-1)**ival
+                #print([p.index for p in patches], ic, uv[0])
+                print('ic = %d, uv0a = (%s, %s), uv0b = (%s, %s)' % (ic, uv[0,0,0], uv[0,1,0], uv[0,0,-1], uv[0,1,-1]))
+                print('jc = %d, uv1a = (%s, %s), uv1b = (%s, %s)' % (jc, uv[1,0,0], uv[1,1,0], uv[1,0,-1], uv[1,1,-1]))
+                for k, l in enumerate([ic,jc]):
+                    ck = cht_xyz(patches[k].xyz)
+                    xka = chebval2d(uv[k,0,0], uv[k,1,0], ck)
+                    xkb = chebval2d(uv[k,0,-1], uv[k,1,-1], ck)
+                    print('err / x%da = %s' % (k, numpy.sqrt(numpy.sum((xka - xc[k][(l+1-k)%4])**2))))
+                    print('err / x%db = %s' % (k, numpy.sqrt(numpy.sum((xkb - xc[k][(l+k)%4])**2))))
+                print('\n\n')
+                #xyz = chebval2d(uv[0,0], uv[0,1], cht_xyz(patches[0].xyz))
                 return Curve_t(patches=patches, xyz=xyz, uv=uv)
     return None
     
 
-def trace_plane_intersection_curve(patches, hmin, hmax, tolchord):
+def trace_plane_intersection_curve(patches, hmin, hmax, tolchord, verbose=False):
     ori = patches[0].xyz[:,-1,-1]
     nor = numpy.cross(patches[0].xyz[:,0,-1] - ori, patches[0].xyz[:,-1,0] - ori)
     # find correct border 
     fc = numpy.array([nor.dot(xc - ori) for xc in patches[1].get_corners()])
     for ic in range(4):
         if numpy.amax(numpy.absolute(fc[[ic, (ic+1)%4]])) < EPS:
-            xyz = patches[1].get_border(ic)
-            c = lch.fcht(xyz).T
-            xyz, t = discretize_curve(c, hmin, hmax, tolchord, ta=1, tb=-1)
-            ivar = ic2ivar[ic]
-            ival = ic2ival[ic]
-            uv = numpy.zeros((2,2,len(t)))
-            uv[1,ivar,:] = (-1)**ival
-            uv[1,(ivar+1)%2] = numpy.sign(1.5 - ic)*t
+            if NORMAL_CURVATURE_ONLY:
+                xyz, uvtmp, t = discretize_curve_on_surface(
+                    uvborders_c[ic],
+                    cht_xyz(patches[1].xyz),
+                    hmin, hmax, tolchord,
+                    ta=-1, tb=1)
+                uv = numpy.zeros((2,2,len(t)))
+                uv[1] = uvtmp
+            else:
+                xyz = patches[1].get_border(ic)
+                c = lch.fcht(xyz).T
+                xyz, t = discretize_curve(c, hmin, hmax, tolchord, ta=1, tb=-1)
+                ivar = ic2ivar[ic]
+                ival = ic2ival[ic]
+                uv = numpy.zeros((2,2,len(t)))
+                uv[1,ivar,:] = (-1)**ival
+                uv[1,(ivar+1)%2] = numpy.sign(1.5 - ic)*t
             break
     # project onto other plane surface
+    if verbose: print('\n\n\n')
     for ip in range(len(t)):
         c = cht_xyz(patches[0].xyz)
         cu, cv = lch.diff2(c)
-        u, v = uv[0,:,ip]
+        u, v = [0,0]#uv[0,:,ip]
         # Newton
-        for it in range(20):
+        if verbose: print('\n')
+        for it in range(30):
             s = chebval2d(u, v, c)
             r = xyz[:,ip] - s
             su = chebval2d(u, v, cu)
@@ -310,6 +372,8 @@ def trace_plane_intersection_curve(patches, hmin, hmax, tolchord):
             dv = (rsv*E - rsu*F)*invdet
             u += du
             v += dv
+            if verbose: print('it#%d:\tr = %s, duv = %s, (u,v) = (%s, %s)' %
+                              (it, numpy.sqrt(r.dot(r)), numpy.hypot(du, dv), u, v))
             if du**2 + dv**2 < EPSuv**2 and r.dot(r) < EPSxyz**2:
                 uv[0,0,ip] = u
                 uv[0,1,ip] = v
@@ -335,9 +399,11 @@ def discretize_curve(c, hmin, hmax, tolchord, ta=-1, tb=1, n0=20):
     xyz = chebval(t, c)
     xyz_t = chebval(t, c_t)
     xyz_tt = chebval(t, c_tt)
-    curvaturesqr = squared_curvature_curve(
-        xyz_t[0], xyz_t[1], xyz_t[2],
-        xyz_tt[0], xyz_tt[1], xyz_tt[2],
+    curvaturesqr = numpy.maximum(EPSsqr,
+                                 squared_curvature_curve(
+                                     xyz_t[0], xyz_t[1], xyz_t[2],
+                                     xyz_tt[0], xyz_tt[1], xyz_tt[2],
+                                 )
     )
 
     hminsqr = hmin**2
@@ -358,9 +424,11 @@ def discretize_curve(c, hmin, hmax, tolchord, ta=-1, tb=1, n0=20):
                 xyzm = chebval(tm, c)
                 xyzm_t = chebval(tm, c_t)
                 xyzm_tt = chebval(tm, c_tt)
-                curvaturemsqr = squared_curvature_curve(
-                    xyzm_t[0], xyzm_t[1], xyzm_t[2],
-                    xyzm_tt[0], xyzm_tt[1], xyzm_tt[2],
+                curvaturemsqr = numpy.maximum(EPSsqr,
+                                              squared_curvature_curve(
+                                                  xyzm_t[0], xyzm_t[1], xyzm_t[2],
+                                                  xyzm_tt[0], xyzm_tt[1], xyzm_tt[2],
+                                              )
                 )
                 hmsqr = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvaturemsqr))
                 t = numpy.insert(t, i+1, tm)
@@ -389,9 +457,11 @@ def discretize_curve(c, hmin, hmax, tolchord, ta=-1, tb=1, n0=20):
                     xyz[:,i+1] = chebval(t[i+1], c)
                     xyzm_t = chebval(t[i+1], c_t)
                     xyzm_tt = chebval(t[i+1], c_tt)
-                    curvaturemsqr = squared_curvature_curve(
-                        xyzm_t[0], xyzm_t[1], xyzm_t[2],
-                        xyzm_tt[0], xyzm_tt[1], xyzm_tt[2],
+                    curvaturemsqr = numpy.maximum(EPSsqr,
+                                                  squared_curvature_curve(
+                                                      xyzm_t[0], xyzm_t[1], xyzm_t[2],
+                                                      xyzm_tt[0], xyzm_tt[1], xyzm_tt[2],
+                                                  )
                     )
                     hsqr[i+1] = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvaturemsqr))
                     # remove i
@@ -415,3 +485,141 @@ def discretize_curve(c, hmin, hmax, tolchord, ta=-1, tb=1, n0=20):
     """
     #
     return xyz, t
+
+
+
+def normal_curvature(su, sv, suu, suv, svv, du, dv):
+    E = su[0]**2 + su[1]**2 + su[2]**2
+    F = su[0]*sv[0] + su[1]*sv[1] + su[2]*sv[2]
+    G = sv[0]**2 + sv[1]**2 + sv[2]**2
+    n = numpy.vstack([
+        su[1]*sv[2] - su[2]*sv[1],
+        su[2]*sv[0] - su[0]*sv[2],
+        su[0]*sv[1] - su[1]*sv[0]
+    ])
+    L = n[0]*suu[0] + n[1]*suu[1] + n[2]*suu[2]
+    M = n[0]*suv[0] + n[1]*suv[1] + n[2]*suv[2]
+    N = n[0]*svv[0] + n[1]*svv[1] + n[2]*svv[2]
+    numer = L*du*du + 2*M*du*dv + N*dv*dv
+    denom = numpy.maximum(EPS, E*du*du + 2*F*du*dv + G*dv*dv)
+    return numer/denom
+
+
+def discretize_curve_on_surface(cc, cs, hmin, hmax, tolchord, ta=-1, tb=1, n0=20):
+    FRACsqr = 4*tolchord*(2 - tolchord)
+    cc_t = lch.diff(cc)
+    cs_u, cs_v = lch.diff2(cs)
+    cs_uu, cs_uv = lch.diff2(cs_u)
+    cs_uv, cs_vv = lch.diff2(cs_v)
+    #
+    t = numpy.linspace(ta, tb, n0)
+    uv = chebval(t, cc)
+    uv_t = chebval(t, cc_t)
+    xyz = chebval2d(uv[0], uv[1], cs)
+    xyz_u = chebval2d(uv[0], uv[1], cs_u)
+    xyz_v = chebval2d(uv[0], uv[1], cs_v)
+    xyz_uu = chebval2d(uv[0], uv[1], cs_uu)
+    xyz_uv = chebval2d(uv[0], uv[1], cs_uv)
+    xyz_vv = chebval2d(uv[0], uv[1], cs_vv)
+    curvature = numpy.maximum(EPS,
+                              normal_curvature(
+                                  xyz_u, xyz_v, xyz_uu, xyz_uv, xyz_vv,
+                                  uv_t[0], uv_t[1]
+                              )
+    )
+    
+
+    hminsqr = hmin**2
+    hmaxsqr = hmax**2
+    hsqr = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvature**2))
+    #
+    maxit = 100*n0
+    for it in range(maxit):
+        changes = False
+        for i in range(len(t)-1):
+            ei = xyz[:,i+1] - xyz[:,i]
+            lisqr = ei.dot(ei)
+            if lisqr > 2*max(hsqr[i], hsqr[i+1]):
+                # split
+                hi = numpy.sqrt(hsqr[i])
+                hj = numpy.sqrt(hsqr[i+1])
+                tm = (hj*t[i] + hi*t[i+1])/(hi + hj)
+                uvm = chebval(tm, cc)
+                uvm_t = chebval(tm, cc_t)
+                xyzm = chebval2d(uvm[0], uvm[1], cs)
+                xyzm_u = chebval2d(uvm[0], uvm[1], cs_u)
+                xyzm_v = chebval2d(uvm[0], uvm[1], cs_v)
+                xyzm_uu = chebval2d(uvm[0], uvm[1], cs_uu)
+                xyzm_uv = chebval2d(uvm[0], uvm[1], cs_uv)
+                xyzm_vv = chebval2d(uvm[0], uvm[1], cs_vv)
+                curvaturem = numpy.maximum(EPS,
+                                           normal_curvature(
+                                               xyzm_u, xyzm_v, xyzm_uu, xyzm_uv, xyzm_vv,
+                                               uvm_t[0], uvm_t[1]
+                                           )
+                )
+                hmsqr = numpy.minimum(hmaxsqr, numpy.maximum(hminsqr, FRACsqr/curvaturem**2))
+                t = numpy.insert(t, i+1, tm)
+                uv = numpy.insert(uv, i+1, uvm, axis=1)
+                xyz = numpy.insert(xyz, i+1, xyzm, axis=1)
+                hsqr = numpy.insert(hsqr, i+1, hmsqr)
+                changes = True
+                break
+            elif lisqr < 0.5*min(hsqr[i], hsqr[i+1]):
+                if xyz.shape[1] <= 2: break
+                # collapse
+                if i == 0:
+                    # remove i+1
+                    t = numpy.delete(t, i+1)
+                    uv = numpy.delete(uv, i+1, axis=1)
+                    xyz = numpy.delete(xyz, i+1, axis=1)
+                    hsqr = numpy.delete(hsqr, i+1)
+                elif i == xyz.shape[1]-2:
+                    # remove i
+                    t = numpy.delete(t, i)
+                    uv = numpy.delete(uv, i, axis=1)
+                    xyz = numpy.delete(xyz, i, axis=1)
+                    hsqr = numpy.delete(hsqr, i)
+                else:
+                    # relocate i+1
+                    hi = numpy.sqrt(hsqr[i])
+                    hj = numpy.sqrt(hsqr[i+1])
+                    t[i+1] = (hj*t[i] + hi*t[i+1])/(hi + hj)
+                    uv[:,i+1] = chebval(t[i+1], cc)
+                    uvm_t = chebval(t[i+1], cc_t)
+                    xyz[:,i+1] = chebval2d(uv[0,i+1], uv[1,i+1], cs)
+                    xyzm_u = chebval2d(uv[0,i+1], uv[1,i+1], cs_u)
+                    xyzm_v = chebval2d(uv[0,i+1], uv[1,i+1], cs_v)
+                    xyzm_uu = chebval2d(uv[0,i+1], uv[1,i+1], cs_uu)
+                    xyzm_uv = chebval2d(uv[0,i+1], uv[1,i+1], cs_uv)
+                    xyzm_vv = chebval2d(uv[0,i+1], uv[1,i+1], cs_vv)
+                    curvaturem = numpy.maximum(EPS,
+                                               normal_curvature(
+                                                   xyzm_u, xyzm_v, xyzm_uu, xyzm_uv, xyzm_vv,
+                                                   uvm_t[0], uvm_t[1]
+                                               )
+                    )
+                    hsqr[i+1] = numpy.minimum(hmaxsqr,
+                                              numpy.maximum(hminsqr, FRACsqr/curvaturem**2))
+                    # remove i
+                    t = numpy.delete(t, i)
+                    uv = numpy.delete(uv, i, axis=1)
+                    xyz = numpy.delete(xyz, i, axis=1)
+                    hsqr = numpy.delete(hsqr, i)
+                changes = True
+                break
+            else: continue
+        if not changes:break
+    #
+    """
+    for i in range(len(t)):
+        if i == 0:
+            print('%s' % numpy.sqrt(hsqr[i]))
+        else:
+            print('%s\t%s' % (
+                numpy.sqrt(hsqr[i]),
+                numpy.sqrt(numpy.dot(xyz[:,i] - xyz[:,i-1], xyz[:,i] - xyz[:,i-1]))
+            ))
+    """
+    #
+    return xyz, uv, t
