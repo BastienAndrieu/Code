@@ -1,10 +1,10 @@
 # -*-coding:Latin-1 -*
-ROOT = '/home/bastien/'#'/d/bandrieu'
+ROOT = '/d/bandrieu/'#'/home/bastien/'#
 
 import numpy
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
-import meshio
+#import meshio
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -60,13 +60,17 @@ if True:
         xy = numpy.vstack([xy, xyz[:,[1,2]]])
     """
     pth = ROOT+'Téléchargements/ne_50m_admin/'
-    land = 'bolivia_mali_iceland'
+    land = 'bolivia'#'australia'#'bolivia_mali_iceland'
     xy = numpy.loadtxt(pth+land+'_xy.dat')
     f2v = numpy.loadtxt(pth+land+'_tri.dat', dtype=int)
-    
+    """
+    pth = '/stck/bandrieu/Bureau/CYPRES/Regression2D/distmesh/'
+    xy = numpy.loadtxt(pth+'naca_xy.dat')
+    f2v = numpy.loadtxt(pth+'naca_tri.dat', dtype=int)-1
+    """
 else:
     pth = ROOT+'Téléchargements/mesquite-2.3.0/meshFiles/2D/vtk/'
-    filename = pth+'tris/untangled/tri_20258.vtk'#mixed/untangled/overt_hyb_2.vtk'#N-Polygonal/poly3.vtk'#tris/untangled/bad_circle_tri.vtk'#
+    filename = pth+'mixed/untangled/overt_hyb_2.vtk'#N-Polygonal/poly3.vtk'#tris/untangled/tri_20258.vtk'#tris/untangled/bad_circle_tri.vtk'#
     if True:
         reader = vtk.vtkUnstructuredGridReader()#vtkPolyDataReader()#
         reader.SetFileName(filename)
@@ -200,6 +204,28 @@ for c in bound_cells:
             closest_edge[c] = i
 
 print '   ok.'
+
+
+if True:
+    fig, ax = plt.subplots()
+    # plot 'surface' mesh
+    for e in SM_e2v:
+        i, j = e
+        ax.plot([SM_verts_xy[i][0], SM_verts_xy[j][0]],
+                [SM_verts_xy[i][1], SM_verts_xy[j][1]],
+                'k')
+    # plot projections
+    for i, c in enumerate(bound_cells):
+        ax.plot([cell_centers[c][0], closest_point[c][0]],
+                [cell_centers[c][1], closest_point[c][1]],
+                'r')
+    #
+    ax.plot(cell_centers[bound_cells,0], cell_centers[bound_cells,1], 'b.')
+    #
+    ax.set_aspect('equal')
+    plt.show()
+
+
 
 
 

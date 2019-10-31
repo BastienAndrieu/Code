@@ -313,12 +313,12 @@ def plot_mesh(mesh,
                     x = [fctr[i,0], xym[0]]
                     y = [fctr[i,1], xym[1]]
                     ax.plot(x, y, 'b-', lw=0.5)
-                if edges: ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
+                if edges: ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=0.8)
             else:
                 ej = get_twin([i,j], mesh)
                 if edges:
                     if v1.index < v2.index:
-                        ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=1.5)
+                        ax.plot([v1.co[0], v2.co[0]], [v1.co[1], v2.co[1]], 'k', lw=0.8)
                 if halfedges:
                     ax.plot([fctr[i,0], fctr[ej[0],0]], [fctr[i,1], fctr[ej[0],1]],
                             'g-', lw=0.5)
@@ -371,4 +371,38 @@ def plot_mesh(mesh,
     return
 
 
+#######################################################
+def barycentric_coords(poly, point):
+    return None
 
+#######################################################
+def locate_point_2d(mesh, point, iface=None):
+    if iface is None:
+        iface = numpy.random.randint(len(mesh.f2v))
+    #
+    jface = iface
+    visited_faces = []
+    while True:
+        if jface in visited_faces:
+            break
+        visited_faces.append(jface)
+        #
+        #
+        verts = mesh.f2v[jface]
+        m = len(verts)
+        inside = True
+        for i in range(m):
+            u = mesh.verts[verts[(i+1)%m]].co - mesh.verts[verts[i]].co
+            v = point - mesh.verts[verts[i]].co
+            if u[0]*v[1] < u[1]*v[0]:
+                inside = False
+                twin = mesh.get_twin([jface,i])
+                if mesh.is_boundary_edge(twin):
+                    return False, jface, None
+                jface = mesh.get_face(twin)
+                break
+        #
+        if inside:
+            poly = [mesh.verts[v].co for v in verts]
+            return jface, barycentric_coords(poly, point)
+    
