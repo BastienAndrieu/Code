@@ -4,7 +4,7 @@ from matplotlib import cm
 
 import sys
 sys.path.append('/d/bandrieu/GitHub/Code/Python')
-from lib_trees import TreeNode, get_max_depth, flatten_tree
+from lib_trees import TreeNode, place_points_in_tree, get_max_depth, flatten_tree
 
 def plot_tree(node, ax, show_depth=False, color='0.8', linestyle='-', linewidth=1):
     if node.is_leaf():
@@ -19,12 +19,12 @@ def plot_tree(node, ax, show_depth=False, color='0.8', linestyle='-', linewidth=
             plot_tree(child, ax, show_depth, color, linestyle, linewidth)
     return 
 
-def place_points_in_tree(node, points, max_points_per_node=1):
+"""def place_points_in_tree(node, points, max_points_per_node=1):
     if len(node.ipoints) > max_points_per_node:
         node.split(points)
         for child in node.children:
             place_points_in_tree(child, points, max_points_per_node)
-    return
+    return"""
 
 def plot_full_quadtree(depth, extents, ax, color='b', linestyle=':'):
     n = 2**depth + 1
@@ -67,7 +67,7 @@ root = TreeNode(
 
 
 print 'place points in tree...'
-place_points_in_tree(root, xy, max_points_per_node=1)
+place_points_in_tree(root, xy, max_points_per_leaf=1)
 print '...ok\n'
 
 """# find closest point in quadtree

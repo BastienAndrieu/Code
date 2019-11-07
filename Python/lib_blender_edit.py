@@ -103,7 +103,54 @@ def laplacian_smoothing(obj,
 
 
 
+### Laplacian smoothing ###
+#"Improved Laplacian Smoothing of Noisy Surface Meshes", Vollmer et al. (2001)
+def improved_laplacian_smoothing(obj,
+                                 alpha=0.5,
+                                 beta=0.5,
+                                 npasses=1):
+    #import numpy
+    # switch to edit mode
+    bpy.ops.object.mode_set(mode='EDIT')
 
+    me = obj.data
+    # Get a BMesh representation
+    bm = bmesh.from_edit_mesh(me)
+    nv = len(bm.verts)
+
+    # get vertex-vertex adjacency lists
+    neighbors = [[e.other_vert(v) for e in v.link_edges] for v in bm.verts]
+
+    # perform plain Laplacian smoothing on free vertices
+    o = [v.co.copy() for v in bm.verts]
+    p = o[:]
+    b = [Vector((0,0,0)) for v in bm.verts]
+    for passe in range(npasses):
+        q = p[:]#[v.co.copy() for v in bm.verts]
+        for i, v in enumerate(bm.verts):
+            if v.is_boundary: continue
+            p[i] = Vector((0,0,0))
+            n = len(neighbors[i])
+            for w in neighbors[i]:
+                p[i] += q[w.index]/n
+            b[i] = p[i] - (alpha*o[i] + (1-alpha)*q[i])
+        #
+        for i, v in enumerate(bm.verts):
+            if v.is_boundary: continue
+            n = len(neighbors[i])
+            for w in neighbors[i]:
+                p[i] = p[i] - (1-beta)*b[w.index]/n
+            p[i] = p[i] - beta*b[i]
+        
+    for i, v in enumerate(bm.verts):
+        v.co[:3] = p[i][:3]
+            
+    # leave edit mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    bm.free()
+    return
+###########################
 
 
 
@@ -600,3 +647,107 @@ def unwrap_uv_unstructured(obj, uv):
             for l in range(2):
                 uvlayer.data[k].uv[l] = uv[f.vertices[j]][l]
     return obj
+
+###########################
+#https://blender.stackexchange.com/questions/139384/get-rgb-value-of-texture-from-face-on-mesh/139399
+#from mathutils.interpolate import poly_3d_calc
+from bpy.types import Scene, Mesh, MeshPolygon, Image
+
+
+# reference: https://svn.blender.org/svnroot/bf-extensions/trunk/py/scripts/addons/uv_bake_texture_to_vcols.py
+def getPixel(img, uv_coord):
+    """ get RGBA value for specified coordinate in UV image
+    pixels    -- list of pixel data from UV texture image
+    uv_coord  -- UV coordinate of desired pixel value
+    """
+    pixels = img.pixels # Accessing pixels directly is quite slow. Copy to new array and pass as an argument for massive performance-gain if you plan to run this function many times on the same image (img.pixels[:]).
+    pixelNumber = (img.size[0] * int(uv_coord.y)) + int(uv_coord.x)
+    return pixels[pixelNumber*4:(pixelNumber+1)*4]
+
+
+
+
+
+def image_based_adaptive_subdivision(
+        obj,
+        image:Image,
+        tolerance=0.01,
+        smoothness=1,
+        quadtri=True,
+        quadcorner='PATH',
+        n_pass_max=6
+):
+    bpy.context.scene.objects.active = obj
+    msh = obj.data
+    #
+    for ipass in range(n_pass_max):
+        listf = []
+        for iface, face in enumerate(msh.polygons):
+            if not face.select: continue
+            # check if face needs to be further subdivided
+            needs_to_be_further_subdivided = image_based_subdivision_criterion(
+                mesh=msh,
+                face=face,
+                image=image,
+                tolerance=tolerance
+            )
+            #
+            if needs_to_be_further_subdivided:
+                listf.append(iface)
+        #
+        # subdivide all selected faces
+        nsubf = len(listf)
+        if nsubf < 1:
+            print('no more subdivisions needed')
+            break
+        # reset face selection
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        # select faces in list
+        bpy.ops.object.mode_set(mode='OBJECT')
+        for iface in listf:
+            msh.polygons[iface].select = True
+        
+        # subdivide selected faces
+        bpy.ops.object.mode_set(mode='EDIT')
+        print('subdivide %d faces (pass #%d)' % (nsubf, ipass+1))
+        bpy.ops.mesh.subdivide(smoothness=smoothness, quadtri=quadtri, quadcorner=quadcorner)
+        bpy.ops.object.mode_set(mode='OBJECT')
+    return 
+   
+def uv_in_image(uv, image):
+    uv_loc = Vector((uv[0] % 1, uv[1] % 1))
+    # convert uv_loc in range(0,1) to uv coordinate
+    image_size_x, image_size_y = image.size
+    x_co = round(uv_loc.x * (image_size_x - 1))
+    y_co = round(uv_loc.y * (image_size_y - 1))
+    return Vector((x_co, y_co))
+
+def image_based_subdivision_criterion(mesh:Mesh, face:MeshPolygon, image:Image, tolerance):
+    # get active uv layer data
+    uv_layer = mesh.uv_layers.active
+    assert uv_layer is not None # ensures mesh has a uv map
+    uv = uv_layer.data
+    # get uv coordinates of face's vertices
+    uv_verts = [uv[i].uv for i in face.loop_indices]
+    #uv_verts = [uv[face.loop_start+i].uv for i in range(face.loop_total)]
+    invn = 1.0/len(uv_verts)
+    uv_centroid = Vector((0,0))
+    rgba_interp = numpy.zeros(4)
+    for uvi in uv_verts:
+        uv_centroid += uvi
+        rgba_interp = rgba_interp + getPixel(image, uv_in_image(uvi, image))
+    uv_centroid *= invn
+    uv_centroid = uv_in_image(uv_centroid, image)
+    
+    rgba_interp = rgba_interp*invn
+    #
+    rgba_actual = numpy.asarray(getPixel(image, uv_centroid))
+    #print('rgba interp, actual =', rgba_interp, rgba_actual)
+    #
+    diff_rgba = rgba_interp - rgba_actual
+    diff_rgba = numpy.sqrt(numpy.sum(diff_rgba**2))
+    #print('diff_rgba = ', diff_rgba, ' | ', tolerance)
+    return diff_rgba > tolerance
+    
